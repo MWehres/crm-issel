@@ -1286,6 +1286,20 @@ textarea { resize: vertical; min-height: 80px; }
           </select>
         </div>
         <div class="form-group">
+          <label>Zuständige Abteilung(en)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;padding:5px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg)">
+              <input type="checkbox" id="ae-dept-security" value="Security"> Security
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;padding:5px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg)">
+              <input type="checkbox" id="ae-dept-facility" value="Facility"> Facility
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;padding:5px 11px;border:1px solid var(--border2);border-radius:7px;background:var(--bg)">
+              <input type="checkbox" id="ae-dept-k9" value="K9"> K9
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;cursor:pointer">
             <input type="checkbox" id="ae-active" checked style="width:16px;height:16px;cursor:pointer">
             Konto aktiv
@@ -2473,6 +2487,34 @@ function loadAuthUsers() {
 
 function saveAuthUsers(users) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(users));
+  // Sync-Push wenn JSONbin konfiguriert — so werden Änderungen geräteübergreifend gespeichert
+  if (typeof syncIsConfigured === 'function' && syncIsConfigured()) {
+    syncPush();
+  }
+}
+
+// ── Remote Auth-User laden (für neue Geräte ohne lokalen Cache) ──
+async function authLoadRemoteUsers() {
+  try {
+    // typeof-Check: JSONbin-Konstanten sind im zweiten Script-Block definiert
+    const key  = (typeof JB_MASTER_KEY !== 'undefined') ? JB_MASTER_KEY : null;
+    const bin  = (typeof JB_BIN_ID     !== 'undefined') ? JB_BIN_ID     : null;
+    const base = (typeof JB_BASE       !== 'undefined') ? JB_BASE       : 'https://api.jsonbin.io/v3/b';
+    if (!key || !bin) return;
+    const res = await fetch(`${base}/${bin}/latest`, {
+      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
+      cache: 'no-store'
+    });
+    if (!res.ok) return;
+    const json   = await res.json();
+    const remote = json.record || json;
+    if (remote.authUsers && remote.authUsers.length > 0) {
+      // Nur überschreiben wenn remote mehr/neuere User enthält
+      localStorage.setItem(AUTH_KEY, JSON.stringify(remote.authUsers));
+    }
+  } catch(e) {
+    console.warn('[Auth] Remote-Load fehlgeschlagen:', e.message);
+  }
 }
 
 // ── Standard-Admin anlegen falls keine User vorhanden ─────
@@ -2508,13 +2550,20 @@ function checkSession() {
 
 function setSession(user) {
   const session = {
-    userId:   user.id,
-    username: user.username,
-    name:     user.name,
-    role:     user.role
+    userId:     user.id,
+    dbUserId:   user.dbUserId   || null,
+    username:   user.username,
+    name:       user.name,
+    role:       user.role,
+    department: user.department || ''
   };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   currentUser = session;
+}
+
+// Hilfsfunktion: DB.users-ID des eingeloggten Nutzers
+function getCurrentDbUserId() {
+  return currentUser?.dbUserId || null;
 }
 
 function clearSession() {
@@ -2681,10 +2730,20 @@ function openAuthUserModal(userId) {
     document.getElementById('ae-password').value = '';
     document.getElementById('ae-role').value     = u.role || 'user';
     document.getElementById('ae-active').checked = u.active !== false;
+    // Abteilungs-Checkboxen befüllen
+    const depts = (u.department || '').split(',').map(s => s.trim().toLowerCase());
+    ['security','facility','k9'].forEach(d => {
+      const cb = document.getElementById('ae-dept-'+d);
+      if (cb) cb.checked = depts.includes(d);
+    });
   } else {
     ['ae-name','ae-username','ae-password'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('ae-role').value     = 'user';
     document.getElementById('ae-active').checked = true;
+    ['security','facility','k9'].forEach(d => {
+      const cb = document.getElementById('ae-dept-'+d);
+      if (cb) cb.checked = false;
+    });
   }
   document.getElementById('modal-auth-edit').classList.add('active');
 }
@@ -2696,45 +2755,81 @@ async function saveAuthUser() {
   const role     = document.getElementById('ae-role').value;
   const active   = document.getElementById('ae-active').checked;
 
+  // Abteilungen auslesen
+  const depts = ['security','facility','k9']
+    .filter(d => document.getElementById('ae-dept-'+d)?.checked)
+    .map(d => d.charAt(0).toUpperCase() + d.slice(1));
+  const department = depts.join(',');
+
   if (!username) { toast('Benutzername ist Pflicht', 'error'); return; }
   if (!_editingAuthUserId && !password) { toast('Passwort ist Pflicht für neue Benutzer', 'error'); return; }
 
   const users = loadAuthUsers();
-
-  // Duplicate check
   const dup = users.find(u => u.username === username && u.id !== _editingAuthUserId);
   if (dup) { toast('Benutzername bereits vergeben', 'error'); return; }
 
+  let dbUserId;
+
   if (_editingAuthUserId) {
-    // Update
     const idx = users.findIndex(u => u.id === _editingAuthUserId);
     if (idx < 0) return;
-    users[idx].name   = name;
-    users[idx].username = username;
-    users[idx].role   = role;
-    users[idx].active = active;
+    users[idx].name       = name;
+    users[idx].username   = username;
+    users[idx].role       = role;
+    users[idx].active     = active;
+    users[idx].department = department;
     if (password) users[idx].passwordHash = await hashPassword(password);
-    // Eigene Session-Daten aktualisieren wenn ich mich selbst bearbeite
-    if (_editingAuthUserId === currentUser?.userId) {
-      currentUser.name = name; currentUser.username = username; currentUser.role = role;
+    dbUserId = users[idx].dbUserId;
+    if (currentUser && _editingAuthUserId === currentUser.userId) {
+      currentUser.name = name; currentUser.username = username;
+      currentUser.role = role; currentUser.department = department;
       setSession(users[idx]);
       updateSidebarUserBadge();
     }
   } else {
-    // Create
     const hash = await hashPassword(password);
+    // Neue ID die sowohl für Auth-User als auch DB.users verwendet wird
+    dbUserId = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     users.push({
-      id:           'u_' + Date.now(),
+      id: 'a_' + Date.now(),
+      dbUserId,
       username,
       passwordHash: hash,
       name,
       role,
+      department,
       active,
       created: new Date().toISOString()
     });
   }
 
   saveAuthUsers(users);
+
+  // ── Automatisch in DB.users (CRM-Team) synchronisieren ──
+  if (typeof DB !== 'undefined' && dbUserId) {
+    const existingIdx = DB.users.findIndex(u => u.id === dbUserId || u.authId === (_editingAuthUserId || ''));
+    const dbEntry = {
+      id:         dbUserId,
+      authId:     _editingAuthUserId || users[users.length-1]?.id,
+      name:       name || username,
+      role:       role === 'admin' ? 'Administrator' : 'Mitarbeiter',
+      department,
+      color:      existingIdx >= 0 ? (DB.users[existingIdx].color || '#1565C0') : '#1565C0',
+      email:      existingIdx >= 0 ? (DB.users[existingIdx].email || '') : '',
+      active,
+      created:    new Date().toISOString()
+    };
+    if (existingIdx >= 0) {
+      DB.users[existingIdx] = { ...DB.users[existingIdx], ...dbEntry };
+    } else {
+      DB.users.push(dbEntry);
+    }
+    if (typeof save === 'function') save();
+    if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
+    if (typeof updateTeamBadge === 'function') updateTeamBadge();
+    if (typeof renderTeam === 'function' && document.getElementById('page-team')?.classList.contains('active')) renderTeam();
+  }
+
   closeModal('modal-auth-edit');
   renderAuthUsersList();
   toast(_editingAuthUserId ? 'Benutzer aktualisiert' : 'Benutzer angelegt', 'success');
@@ -2760,13 +2855,20 @@ function deleteAuthUser(userId) {
 
 // ── Start: Login-Screen oder App zeigen ──────────────────
 async function authInit() {
+  // Kleines Delay damit Script 2 (JSONbin-Konstanten) vollständig geladen ist
+  await new Promise(r => setTimeout(r, 80));
+
+  // Remote Auth-User laden — wichtig für neue Geräte ohne lokalen Cache
+  await authLoadRemoteUsers();
+
+  // Standard-Admin nur anlegen wenn wirklich noch keine User existieren
   await ensureDefaultAdmin();
+
   const session = checkSession();
   if (session) {
     currentUser = session;
     showApp();
   } else {
-    // Login-Screen anzeigen, Enter-Fokus setzen
     setTimeout(() => document.getElementById('login-username')?.focus(), 100);
   }
 }
@@ -2941,6 +3043,10 @@ function applyRemoteData(d) {
     DB.lists.industries = d.lists.industries || DB.lists.industries;
     DB.lists.sources    = d.lists.sources    || DB.lists.sources;
   }
+  // ── Login-Accounts synchronisieren ─────────────────────
+  if (d.authUsers && d.authUsers.length > 0) {
+    saveAuthUsers(d.authUsers);
+  }
   _jbTs = d._ts || Date.now();
   syncSaveConfig();
   saveLocal();
@@ -3081,6 +3187,7 @@ async function _doPush() {
       tasks:        DB.tasks,
       users:        DB.users,
       lists:        DB.lists,
+      authUsers:    loadAuthUsers(),   // ← Login-Accounts geräteübergreifend
       _ts:          ts,
       _chunks:      chunks.length,
       _contactBins: _jbContactBins
@@ -3843,7 +3950,9 @@ function openContactModal(id) {
   } else {
     updateAllListSelects();
     fields.forEach(f => { const el = document.getElementById('c-' + f.replace(/([A-Z])/g, m => '-' + m.toLowerCase())); if (el) el.value = ''; });
-    deptFillCheckboxes('');
+    // Abteilung des eingeloggten Users automatisch vorbelegen
+    const userDept = (typeof currentUser !== 'undefined' && currentUser?.department) ? currentUser.department : '';
+    deptFillCheckboxes(userDept);
     const ps = document.getElementById('c-priority'); if (ps) ps.value = 'medium';
     const st = document.getElementById('c-status'); if (st) st.value = 'Prospect';
   }
@@ -4181,7 +4290,9 @@ function openActivityModal() { openActivityModalFor(''); }
 
 function openActivityModalFor(contactId) {
   updateActivityContactSelect(contactId);
-  updateActivityUserSelect('');
+  // Eingeloggten User automatisch vorbelegen
+  const autoUser = (typeof getCurrentDbUserId === 'function') ? getCurrentDbUserId() : '';
+  updateActivityUserSelect(autoUser || '');
   document.getElementById('a-date').value = fmtDate(0);
   document.getElementById('a-subject').value = '';
   document.getElementById('a-details').value = '';
@@ -4319,7 +4430,11 @@ function openTaskModal() {
   document.getElementById('t-due').value = '';
   document.getElementById('t-category').value = 'Nachfassen';
   document.getElementById('t-notes').value = '';
-  if (document.getElementById('t-assignee')) document.getElementById('t-assignee').value = '';
+  if (document.getElementById('t-assignee')) {
+    // Eingeloggten User automatisch vorbelegen
+    const autoUser = (typeof getCurrentDbUserId === 'function') ? getCurrentDbUserId() : '';
+    document.getElementById('t-assignee').value = autoUser || '';
+  }
   document.getElementById('modal-task').classList.add('active');
 }
 
@@ -4623,6 +4738,10 @@ function mergeContacts(incoming) {
   const results = { added: [], merged: [], skipped: [] };
 
   incoming.forEach(newC => {
+    // Abteilung des importierenden Users automatisch setzen (nur wenn Kontakt keine hat)
+    if (!newC.department && typeof currentUser !== 'undefined' && currentUser?.department) {
+      newC.department = currentUser.department;
+    }
     // Sicherstellen dass ID einmalig ist
     if (DB.contacts.some(c => c.id === newC.id)) {
       newC = { ...newC, id: uid() };
