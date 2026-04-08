@@ -3047,6 +3047,9 @@ function applyRemoteData(d) {
   if (d.authUsers && d.authUsers.length > 0) {
     saveAuthUsers(d.authUsers);
   }
+  // ── Auth-Users immer in DB.users spiegeln ───────────────
+  // Läuft nach jedem Remote-Pull damit JSONbin-Sync DB.users nicht leert
+  syncAuthUsersToCrmUsers(false);
   _jbTs = d._ts || Date.now();
   syncSaveConfig();
   saveLocal();
@@ -6680,9 +6683,76 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   });
 });
 
+// ══════════════════════════════════════════════════════════
+// AUTH → CRM TEAM SYNC
+// Hält DB.users immer synchron mit den Login-Accounts.
+// Wird nach jedem Remote-Pull und beim Start aufgerufen.
+// ══════════════════════════════════════════════════════════
+function syncAuthUsersToCrmUsers(shouldSave = true) {
+  const authUsers = (typeof loadAuthUsers === 'function') ? loadAuthUsers() : [];
+  if (!authUsers.length) return;
+
+  let changed = false;
+
+  authUsers.forEach(au => {
+    const displayName = au.name || au.username || 'Unbekannt';
+
+    // Falls auth-User noch keine dbUserId hat → jetzt generieren und speichern
+    if (!au.dbUserId) {
+      au.dbUserId = 'u_' + au.id;
+      // Auth-User-Datensatz aktualisieren
+      const allAuth = loadAuthUsers();
+      const idx = allAuth.findIndex(u => u.id === au.id);
+      if (idx >= 0) { allAuth[idx].dbUserId = au.dbUserId; localStorage.setItem(AUTH_KEY, JSON.stringify(allAuth)); }
+    }
+
+    // Prüfen ob DB.users-Eintrag schon existiert
+    const existingIdx = DB.users.findIndex(u => u.id === au.dbUserId || u.authId === au.id);
+
+    const dbEntry = {
+      id:         au.dbUserId,
+      authId:     au.id,
+      name:       displayName,
+      role:       au.role === 'admin' ? 'Administrator' : 'Mitarbeiter',
+      department: au.department || '',
+      color:      existingIdx >= 0 ? (DB.users[existingIdx].color || '#1565C0') : '#1565C0',
+      email:      existingIdx >= 0 ? (DB.users[existingIdx].email || '') : '',
+      phone:      existingIdx >= 0 ? (DB.users[existingIdx].phone || '') : '',
+      region:     existingIdx >= 0 ? (DB.users[existingIdx].region || '') : '',
+      active:     au.active !== false,
+      created:    au.created || new Date().toISOString()
+    };
+
+    if (existingIdx >= 0) {
+      // Nur aktualisieren wenn sich etwas geändert hat
+      const old = DB.users[existingIdx];
+      if (old.name !== dbEntry.name || old.role !== dbEntry.role ||
+          old.department !== dbEntry.department || old.active !== dbEntry.active) {
+        DB.users[existingIdx] = { ...old, ...dbEntry };
+        changed = true;
+      }
+    } else {
+      DB.users.push(dbEntry);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    if (shouldSave && typeof save === 'function') save();
+    if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
+    if (typeof updateTeamBadge === 'function') updateTeamBadge();
+    if (typeof renderTeam === 'function') {
+      const teamPage = document.getElementById('page-team');
+      if (teamPage?.classList.contains('active')) renderTeam();
+    }
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────
 (function initApp() {
   load();
+  // Auth-User → DB.users beim Start synchronisieren
+  setTimeout(() => syncAuthUsersToCrmUsers(true), 200);
   document.getElementById('sidebar-date').textContent = new Date().toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'});
   updateAllListSelects();
   updateAllContactSelects();
