@@ -2141,6 +2141,7 @@ textarea { resize: vertical; min-height: 80px; }
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-deal')">Abbrechen</button>
+      <button class="btn btn-danger btn-sm" id="deal-delete-btn" style="display:none;margin-right:auto" onclick="deleteDealFromModal()">🗑 Löschen</button>
       <button class="btn btn-primary" onclick="saveDeal()">Speichern</button>
     </div>
   </div>
@@ -3153,6 +3154,18 @@ async function _doPush() {
   console.log(`[Sync] Push: ${DB.contacts.length} Kontakte → ${chunks.length} Bin(s), ~${totalKB}KB gesamt`);
 
   try {
+    // ── Vorhandene Kontakt-Bins aus Haupt-Bin lesen falls lokal leer ─
+    // Verhindert endlose neue Bins bei frischer Session
+    if (_jbContactBins.length === 0) {
+      try {
+        const main = await _jbGet(_jbBin);
+        if (main._contactBins && main._contactBins.length > 0) {
+          _jbContactBins = main._contactBins;
+          syncSaveConfig();
+          console.log(`[Sync] Vorhandene Kontakt-Bins geladen: ${_jbContactBins.length}`);
+        }
+      } catch(e) { /* Haupt-Bin noch nicht vorhanden – OK */ }
+    }
     // ── Kontakt-Bins sicherstellen ────────────────────────
     // Fehlende Bins automatisch anlegen
     while (_jbContactBins.length < chunks.length) {
@@ -3265,36 +3278,55 @@ async function _doPoll() {
     }
 
     const localTs = _jbTs;
+
+    // ── FALL 1: Frische Session MIT lokalen Daten ────────
+    // Lokal hochladen statt remote-Daten übernehmen
+    if (localTs === 0 && DB.contacts.length > 0) {
+      console.log(`[Sync] Frische Session, ${DB.contacts.length} lokale Kontakte → Push`);
+      await _doPush();
+      syncBarSet('connected', 'Lokale Daten hochgeladen');
+      _jbActive = true;
+      return;
+    }
+
+    // ── FALL 2: Frische Session OHNE lokale Daten ────────
     if (localTs === 0) {
       applyRemoteData(fullRemote);
-      syncBarSet('connected', 'Geladen');
+      syncBarSet('connected', 'Daten geladen');
       syncSetTs();
       _jbActive = true;
       return;
     }
 
-    // Konflikt-Pruefung
-    const localPayload = localStorage.getItem(STORAGE_KEY);
-    const localParsed  = localPayload ? JSON.parse(localPayload) : null;
-    const localModified = localParsed && JSON.stringify({
-      contacts: DB.contacts, deals: DB.deals,
-      activities: DB.activities, tasks: DB.tasks, users: DB.users
-    }) !== JSON.stringify({
-      contacts: localParsed.contacts, deals: localParsed.deals,
-      activities: localParsed.activities, tasks: localParsed.tasks,
-      users: localParsed.users
-    });
-
-    if (!localModified || localTs < remoteTs) {
-      applyRemoteData(fullRemote);
-      syncBarSet('connected', 'Aktualisiert');
+    // ── FALL 3: Remote ist nicht neuer → nichts tun ──────
+    if (remoteTs <= localTs) {
+      syncBarSet('connected', 'Aktuell');
       syncSetTs();
       _jbActive = true;
-      toast('Neue Daten von Teammitglied empfangen', '');
-    } else {
-      _jbConflict = fullRemote;
-      _showConflict();
+      return;
     }
+
+    // ── FALL 4: Remote ist neuer ──────────────────────────
+    const localCount  = DB.contacts.length;
+    const remoteCount = allContacts.length;
+
+    // Sicherheit: Remote hat deutlich weniger → lokal hochladen
+    if (localCount > 10 && remoteCount < localCount * 0.7) {
+      console.warn(`[Sync] Remote (${remoteCount}) < Lokal (${localCount}) → Lokal gewinnt`);
+      _jbTs = remoteTs - 1; // sicherstellen dass Push durchgeht
+      await _doPush();
+      syncBarSet('connected', 'Gespeichert');
+      toast(`Sync: Lokale Daten (${localCount} Kontakte) gesichert`, 'success');
+      _jbActive = true;
+      return;
+    }
+
+    // Normal: Remote hat neue/mehr Daten → anwenden
+    applyRemoteData(fullRemote);
+    syncBarSet('connected', 'Aktualisiert');
+    syncSetTs();
+    _jbActive = true;
+    if (remoteCount > 0) toast('Neue Daten vom Server geladen', '');
 
   } catch(err) {
     console.warn('[Sync] Poll error:', err.message);
@@ -4115,6 +4147,9 @@ function updatePipelineContactFilter() {
 function openDealModal(id) {
   editingDealId = id || null;
   document.getElementById('deal-modal-title').textContent = id ? 'Deal bearbeiten' : 'Neuer Deal';
+  // Löschen-Button nur beim Bearbeiten anzeigen
+  const delBtn = document.getElementById('deal-delete-btn');
+  if (delBtn) delBtn.style.display = id ? 'inline-flex' : 'none';
   updateDealContactSelect();
   if (id) {
     const d = DB.deals.find(d => d.id === id);
@@ -4209,8 +4244,19 @@ function deleteDeal(id) {
     DB.deals = DB.deals.filter(d => d.id !== id);
     save();
     renderPipeline();
+    if (typeof renderFinanzen === 'function') renderFinanzen();
+    if (akteContactId) renderAkte();
+    refreshDashboard();
     toast('Deal gelöscht');
   });
+}
+
+// Löschen direkt aus dem Deal-Modal heraus
+function deleteDealFromModal() {
+  if (!editingDealId) return;
+  const id = editingDealId;
+  closeModal('modal-deal');
+  deleteDeal(id);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5389,18 +5435,19 @@ function renderFinanzen() {
     allDeals.forEach(d => {
       const c = DB.contacts.find(c => c.id === d.contactId);
       const stage = STAGES.find(s => s.key === d.stage);
-      html += `<tr onclick="editDeal('${d.id}')" style="cursor:pointer">
-        <td style="font-weight:500;font-size:12px">${esc(d.title)}</td>
-        <td style="font-size:12px">${esc(c ? c.company : '–')}</td>
-        <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:${stage?.color||'#ccc'}22;color:${stage?.color||'#666'}">${stage?.label||d.stage}</span></td>
-        <td style="font-weight:600">${d.value ? fmtEurFull(d.value) : '–'}</td>
-        <td style="font-size:12px;color:var(--text2)">${d.value ? fmtEurFull(d.value/12) : '–'}</td>
-        <td style="font-size:12px;color:var(--text2)">${d.hoursPerMonth ? d.hoursPerMonth.toLocaleString('de-DE') + ' h' : '–'}</td>
-        <td style="font-size:12px;color:var(--text2)">${d.hourlyRate ? '€ ' + d.hourlyRate.toFixed(2) : '–'}</td>
-        <td style="font-size:12px;color:var(--text2)">${d.cost ? fmtEurFull(d.cost) : '–'}</td>
-        <td>${d.margin != null ? `<span class="badge ${d.margin >= 20 ? 'badge-green' : d.margin >= 10 ? 'badge-orange' : 'badge-red'}">${d.margin.toFixed(1)} %</span>` : '–'}</td>
-        <td style="font-size:12px;color:var(--text2)">${d.setupCost ? fmtEurFull(d.setupCost) : '–'}</td>
-        <td style="font-weight:600;color:${d.actualRevenue ? 'var(--green)' : 'var(--text3)'}">${d.actualRevenue ? fmtEurFull(d.actualRevenue) : '–'}</td>
+      html += `<tr>
+        <td style="font-weight:500;font-size:12px" onclick="editDeal('${d.id}')" style="cursor:pointer">${esc(d.title)}</td>
+        <td style="font-size:12px" onclick="editDeal('${d.id}')">${esc(c ? c.company : '–')}</td>
+        <td onclick="editDeal('${d.id}')"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:${stage?.color||'#ccc'}22;color:${stage?.color||'#666'}">${stage?.label||d.stage}</span></td>
+        <td style="font-weight:600" onclick="editDeal('${d.id}')">${d.value ? fmtEurFull(d.value) : '–'}</td>
+        <td style="font-size:12px;color:var(--text2)" onclick="editDeal('${d.id}')">${d.value ? fmtEurFull(d.value/12) : '–'}</td>
+        <td style="font-size:12px;color:var(--text2)" onclick="editDeal('${d.id}')">${d.hoursPerMonth ? d.hoursPerMonth.toLocaleString('de-DE') + ' h' : '–'}</td>
+        <td style="font-size:12px;color:var(--text2)" onclick="editDeal('${d.id}')">${d.hourlyRate ? '€ ' + d.hourlyRate.toFixed(2) : '–'}</td>
+        <td style="font-size:12px;color:var(--text2)" onclick="editDeal('${d.id}')">${d.cost ? fmtEurFull(d.cost) : '–'}</td>
+        <td onclick="editDeal('${d.id}')">${d.margin != null ? `<span class="badge ${d.margin >= 20 ? 'badge-green' : d.margin >= 10 ? 'badge-orange' : 'badge-red'}">${d.margin.toFixed(1)} %</span>` : '–'}</td>
+        <td style="font-size:12px;color:var(--text2)" onclick="editDeal('${d.id}')">${d.setupCost ? fmtEurFull(d.setupCost) : '–'}</td>
+        <td style="font-weight:600;color:${d.actualRevenue ? 'var(--green)' : 'var(--text3)'}" onclick="editDeal('${d.id}')">${d.actualRevenue ? fmtEurFull(d.actualRevenue) : '–'}</td>
+        <td><button class="btn-icon btn-sm" title="Löschen" style="color:var(--red)" onclick="deleteDeal('${d.id}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button></td>
       </tr>`;
     });
   } else {
@@ -6663,6 +6710,7 @@ function akteDealRowHTML(d) {
       <div style="font-size:11px;color:var(--text3)">Marge: ${d.margin?d.margin.toFixed(1)+'%':'—'}</div>
     </div>
     <button class="btn btn-ghost btn-sm no-print" onclick="editDeal('${d.id}')">✏️</button>
+    <button class="btn-icon btn-sm no-print" title="Löschen" style="color:var(--red)" onclick="deleteDeal('${d.id}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button>
   </div>`;
 }
 
