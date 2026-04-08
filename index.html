@@ -2497,7 +2497,6 @@ function saveAuthUsers(users) {
 // ── Remote Auth-User laden (für neue Geräte ohne lokalen Cache) ──
 async function authLoadRemoteUsers() {
   try {
-    // typeof-Check: JSONbin-Konstanten sind im zweiten Script-Block definiert
     const key  = (typeof JB_MASTER_KEY !== 'undefined') ? JB_MASTER_KEY : null;
     const bin  = (typeof JB_BIN_ID     !== 'undefined') ? JB_BIN_ID     : null;
     const base = (typeof JB_BASE       !== 'undefined') ? JB_BASE       : 'https://api.jsonbin.io/v3/b';
@@ -2510,8 +2509,19 @@ async function authLoadRemoteUsers() {
     const json   = await res.json();
     const remote = json.record || json;
     if (remote.authUsers && remote.authUsers.length > 0) {
-      // Nur überschreiben wenn remote mehr/neuere User enthält
-      localStorage.setItem(AUTH_KEY, JSON.stringify(remote.authUsers));
+      const local = loadAuthUsers();
+      // Remote-User zusammenführen — nie lokale User löschen
+      const merged = [...local];
+      remote.authUsers.forEach(ru => {
+        const exists = merged.find(u => u.id === ru.id || u.username === ru.username);
+        if (!exists) merged.push(ru);
+        else if (exists && ru.passwordHash && !exists.passwordHash) {
+          // Remote hat Hash, lokal nicht → übernehmen
+          Object.assign(exists, ru);
+        }
+      });
+      localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
+      console.log(`[Auth] ${merged.length} Benutzer geladen (${remote.authUsers.length} remote, ${local.length} lokal)`);
     }
   } catch(e) {
     console.warn('[Auth] Remote-Load fehlgeschlagen:', e.message);
@@ -3139,13 +3149,19 @@ async function _jbGet(binId) {
 }
 
 // ── PUSH ─────────────────────────────────────────────────
+let _jbPushing = false;          // Lock: kein gleichzeitiger Push+Poll
+let _jbLastPush = 0;             // Timestamp letzter Push
+const JB_POLL_BLOCK_MS = 15000; // Nach Push 15s kein Poll
+
 function syncPush() {
   if (!syncIsConfigured()) return;
   clearTimeout(_jbPushTimer);
-  _jbPushTimer = setTimeout(_doPush, 800);
+  _jbPushTimer = setTimeout(_doPush, 1200); // etwas länger warten damit Batch-Saves zusammengefasst werden
 }
 
 async function _doPush() {
+  if (_jbPushing) { console.log('[Sync] Push läuft bereits – übersprungen'); return; }
+  _jbPushing = true;
   syncBarSet('syncing', 'Speichert...');
   const ts     = Date.now();
   const chunks = _splitContacts(DB.contacts);
@@ -3215,14 +3231,17 @@ async function _doPush() {
     }
 
     // ── Erfolg ────────────────────────────────────────────
-    _jbTs    = ts;
+    _jbTs     = ts;
+    _jbLastPush = Date.now();
     _jbActive = true;
+    _jbPushing = false;
     syncSaveConfig();
     syncBarSet('connected', 'Gespeichert');
     syncSetTs();
     console.log(`[Sync] Push erfolgreich: ${chunks.length} Bin(s)`);
 
   } catch(err) {
+    _jbPushing = false;
     syncBarSet('error', 'Sync-Fehler: ' + err.message);
     console.warn('[Sync] Push error:', err.message);
   }
@@ -3231,6 +3250,9 @@ async function _doPush() {
 // ── POLL ─────────────────────────────────────────────────
 async function _doPoll() {
   if (!syncIsConfigured()) return;
+  // Kein Poll während Push läuft oder kurz danach
+  if (_jbPushing) { console.log('[Sync] Poll übersprungen – Push aktiv'); return; }
+  if (Date.now() - _jbLastPush < JB_POLL_BLOCK_MS) { console.log('[Sync] Poll übersprungen – kurz nach Push'); return; }
   try {
     // Haupt-Bin holen
     const main = await _jbGet(_jbBin);
@@ -3313,10 +3335,8 @@ async function _doPoll() {
     // Sicherheit: Remote hat deutlich weniger → lokal hochladen
     if (localCount > 10 && remoteCount < localCount * 0.7) {
       console.warn(`[Sync] Remote (${remoteCount}) < Lokal (${localCount}) → Lokal gewinnt`);
-      _jbTs = remoteTs - 1; // sicherstellen dass Push durchgeht
       await _doPush();
       syncBarSet('connected', 'Gespeichert');
-      toast(`Sync: Lokale Daten (${localCount} Kontakte) gesichert`, 'success');
       _jbActive = true;
       return;
     }
@@ -3326,7 +3346,7 @@ async function _doPoll() {
     syncBarSet('connected', 'Aktualisiert');
     syncSetTs();
     _jbActive = true;
-    if (remoteCount > 0) toast('Neue Daten vom Server geladen', '');
+    // Kein Toast bei normalem Poll-Update – nur bei manuellem Sync
 
   } catch(err) {
     console.warn('[Sync] Poll error:', err.message);
@@ -3554,7 +3574,7 @@ function openSyncModal() {
 // ── POLLING ───────────────────────────────────────────────
 function _startPolling() {
   clearInterval(_jbPollTimer);
-  _jbPollTimer = setInterval(_doPoll, 12000);
+  _jbPollTimer = setInterval(_doPoll, 45000); // 45s – nicht zu aggressiv
 }
 
 // ── AUTO-INIT ─────────────────────────────────────────────
