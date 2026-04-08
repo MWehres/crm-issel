@@ -2400,6 +2400,11 @@ const SESSION_KEY  = 'prosales_session_v1';
 const AUTH_DEFAULT_USER = 'admin';
 const AUTH_DEFAULT_PASS = 'issel2024';
 
+// JSONbin-Zugangsdaten direkt hier – kein Timing-Problem auf Mobilgeräten
+const _AUTH_JB_KEY  = '$2a$10$BaUPeXZ5IWDazW6oWn8TjOQ6tLvkEUcX3Mo1eJKf.8FswDw9Fdhya';
+const _AUTH_JB_BIN  = '69c5195eb7ec241ddca5ef68';
+const _AUTH_JB_BASE = 'https://api.jsonbin.io/v3/b';
+
 let currentUser = null;  // Eingeloggter Benutzer (nach Login gesetzt)
 let _editingAuthUserId = null;
 
@@ -2496,36 +2501,42 @@ function saveAuthUsers(users) {
 
 // ── Remote Auth-User laden (für neue Geräte ohne lokalen Cache) ──
 async function authLoadRemoteUsers() {
+  // Login-Screen: Ladeindikator anzeigen
+  const sub = document.getElementById('login-sub');
+  if (sub) sub.textContent = 'Benutzer werden geladen…';
+
   try {
-    const key  = (typeof JB_MASTER_KEY !== 'undefined') ? JB_MASTER_KEY : null;
-    const bin  = (typeof JB_BIN_ID     !== 'undefined') ? JB_BIN_ID     : null;
-    const base = (typeof JB_BASE       !== 'undefined') ? JB_BASE       : 'https://api.jsonbin.io/v3/b';
-    if (!key || !bin) return;
-    const res = await fetch(`${base}/${bin}/latest`, {
-      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
+    const res = await fetch(`${_AUTH_JB_BASE}/${_AUTH_JB_BIN}/latest`, {
+      headers: { 'X-Master-Key': _AUTH_JB_KEY, 'X-Bin-Meta': 'false' },
       cache: 'no-store'
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.warn('[Auth] JSONbin HTTP', res.status);
+      if (sub) sub.textContent = 'Bitte melden Sie sich an, um fortzufahren.';
+      return;
+    }
     const json   = await res.json();
     const remote = json.record || json;
+
     if (remote.authUsers && remote.authUsers.length > 0) {
-      const local = loadAuthUsers();
-      // Remote-User zusammenführen — nie lokale User löschen
+      const local  = loadAuthUsers();
       const merged = [...local];
       remote.authUsers.forEach(ru => {
         const exists = merged.find(u => u.id === ru.id || u.username === ru.username);
-        if (!exists) merged.push(ru);
-        else if (exists && ru.passwordHash && !exists.passwordHash) {
-          // Remote hat Hash, lokal nicht → übernehmen
+        if (!exists) {
+          merged.push(ru);
+        } else if (ru.passwordHash && !exists.passwordHash) {
           Object.assign(exists, ru);
         }
       });
       localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
-      console.log(`[Auth] ${merged.length} Benutzer geladen (${remote.authUsers.length} remote, ${local.length} lokal)`);
+      console.log(`[Auth] ${merged.length} Benutzer synchronisiert`);
     }
   } catch(e) {
     console.warn('[Auth] Remote-Load fehlgeschlagen:', e.message);
   }
+
+  if (sub) sub.textContent = 'Bitte melden Sie sich an, um fortzufahren.';
 }
 
 // ── Standard-Admin anlegen falls keine User vorhanden ─────
@@ -2866,15 +2877,9 @@ function deleteAuthUser(userId) {
 
 // ── Start: Login-Screen oder App zeigen ──────────────────
 async function authInit() {
-  // Kleines Delay damit Script 2 (JSONbin-Konstanten) vollständig geladen ist
-  await new Promise(r => setTimeout(r, 80));
-
-  // Remote Auth-User laden — wichtig für neue Geräte ohne lokalen Cache
+  // Remote Auth-User laden bevor Login-Screen erscheint
   await authLoadRemoteUsers();
-
-  // Standard-Admin nur anlegen wenn wirklich noch keine User existieren
   await ensureDefaultAdmin();
-
   const session = checkSession();
   if (session) {
     currentUser = session;
@@ -2979,11 +2984,18 @@ const JB_CHUNK_KB = 80; // Max KB pro Kontakt-Bin
 // ── FEST EINGEBETTETE ZUGANGSDATEN ───────────────────────
 const JB_MASTER_KEY = '$2a$10$BaUPeXZ5IWDazW6oWn8TjOQ6tLvkEUcX3Mo1eJKf.8FswDw9Fdhya';
 const JB_BIN_ID     = '69c5195eb7ec241ddca5ef68';
+
+// Kontakt-Bins fest eingebettet – kein dynamisches Erstellen (verhindert CORS-Fehler)
+const JB_CONTACT_BINS_FIXED = [
+  '69d63b1636566621a88e66e9',  // CRM-Kontakte-1
+  '69d62d1636566621a88e2205',  // CRM-Kontakte-2
+  '69d62d1636566621a88e220b',  // CRM-Kontakte-3
+];
 // ─────────────────────────────────────────────────────────
 
 let _jbKey         = JB_MASTER_KEY;
-let _jbBin         = JB_BIN_ID;     // Haupt-Bin ID
-let _jbContactBins = [];            // Kontakt-Bin IDs (auto-erstellt)
+let _jbBin         = JB_BIN_ID;
+let _jbContactBins = [...JB_CONTACT_BINS_FIXED]; // Fest eingebettet – nie dynamisch überschreiben
 let _jbTs          = 0;
 let _jbPushTimer   = null;
 let _jbPollTimer   = null;
@@ -2994,23 +3006,19 @@ let _jbActive      = false;
 function syncLoadConfig() {
   try {
     const raw = localStorage.getItem(SYNC_CFG_KEY);
+    _jbKey         = JB_MASTER_KEY;
+    _jbBin         = JB_BIN_ID;
+    _jbContactBins = [...JB_CONTACT_BINS_FIXED]; // immer fest – nie aus localStorage
     if (raw) {
       const cfg = JSON.parse(raw);
-      // Gespeicherte contactBins + Timestamp übernehmen,
-      // Key + Bin aber immer aus den eingebetteten Konstanten
-      _jbKey         = JB_MASTER_KEY;
-      _jbBin         = JB_BIN_ID;
-      _jbContactBins = cfg.contactBins || [];
-      _jbTs          = cfg.ts || 0;
-    } else {
-      _jbKey         = JB_MASTER_KEY;
-      _jbBin         = JB_BIN_ID;
+      _jbTs = cfg.ts || 0;
     }
-    syncSaveConfig(); // localStorage aktualisieren
+    syncSaveConfig();
     return true;
   } catch(e) {
-    _jbKey = JB_MASTER_KEY;
-    _jbBin = JB_BIN_ID;
+    _jbKey         = JB_MASTER_KEY;
+    _jbBin         = JB_BIN_ID;
+    _jbContactBins = [...JB_CONTACT_BINS_FIXED];
     return true;
   }
 }
@@ -3170,28 +3178,8 @@ async function _doPush() {
   console.log(`[Sync] Push: ${DB.contacts.length} Kontakte → ${chunks.length} Bin(s), ~${totalKB}KB gesamt`);
 
   try {
-    // ── Vorhandene Kontakt-Bins aus Haupt-Bin lesen falls lokal leer ─
-    // Verhindert endlose neue Bins bei frischer Session
-    if (_jbContactBins.length === 0) {
-      try {
-        const main = await _jbGet(_jbBin);
-        if (main._contactBins && main._contactBins.length > 0) {
-          _jbContactBins = main._contactBins;
-          syncSaveConfig();
-          console.log(`[Sync] Vorhandene Kontakt-Bins geladen: ${_jbContactBins.length}`);
-        }
-      } catch(e) { /* Haupt-Bin noch nicht vorhanden – OK */ }
-    }
-    // ── Kontakt-Bins sicherstellen ────────────────────────
-    // Fehlende Bins automatisch anlegen
-    while (_jbContactBins.length < chunks.length) {
-      const idx   = _jbContactBins.length + 1;
-      syncBarSet('syncing', `Erstelle Bin ${idx}...`);
-      const newId = await _jbCreateBin(`CRM-Kontakte-${idx}`);
-      _jbContactBins.push(newId);
-      syncSaveConfig(); // sofort sichern
-      console.log(`[Sync] Neues Kontakt-Bin ${idx} erstellt: ${newId}`);
-    }
+    // Kontakt-Bins immer aus fest eingebetteten IDs – kein dynamisches Erstellen
+    _jbContactBins = [...JB_CONTACT_BINS_FIXED];
 
     // ── Kontakt-Chunks pushen ─────────────────────────────
     for (let i = 0; i < chunks.length; i++) {
@@ -3265,9 +3253,9 @@ async function _doPoll() {
       return;
     }
 
-    // Kontakt-Bins aus Haupt-Bin lesen
-    const remoteContactBins = main._contactBins || [];
-    const chunkCount        = main._chunks       || 0;
+    // Kontakt-Bins immer aus fest eingebetteten IDs
+    const remoteContactBins = JB_CONTACT_BINS_FIXED;
+    const chunkCount        = main._chunks || JB_CONTACT_BINS_FIXED.length;
 
     // Alle Kontakt-Chunks laden und zusammensetzen
     let allContacts = [];
