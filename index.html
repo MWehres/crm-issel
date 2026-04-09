@@ -617,6 +617,21 @@ textarea { resize: vertical; min-height: 80px; }
 .auth-user-name { font-size: 13px; font-weight: 600; color: var(--navy); }
 .auth-user-meta { font-size: 11px; color: var(--text3); }
 
+/* ── KONTAKT-ERGEBNIS FARBEN ─────────────────────────── */
+.cr-row-rejected    { border-left: 4px solid #DC2626 !important; background: #FFF5F5; }
+.cr-row-mail        { border-left: 4px solid #D97706 !important; background: #FFFBEB; }
+.cr-row-callback    { border-left: 4px solid #1565C0 !important; background: #EFF6FF; }
+.cr-row-appointment { border-left: 4px solid #16A34A !important; background: #F0FDF4; }
+.cr-row-noanswer    { border-left: 4px solid #8A9AB0 !important; background: #F8FAFC; }
+.cr-row-interested  { border-left: 4px solid #7C3AED !important; background: #FAF5FF; }
+.cr-badge { display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap; }
+.cr-rejected    { background:#FEE2E2;color:#DC2626; }
+.cr-mail        { background:#FEF3C7;color:#D97706; }
+.cr-callback    { background:#DBEAFE;color:#1565C0; }
+.cr-appointment { background:#DCFCE7;color:#16A34A; }
+.cr-noanswer    { background:#F1F5F9;color:#64748B; }
+.cr-interested  { background:#EDE9FE;color:#7C3AED; }
+
 @media print {
   body { background: white !important; }
   #sidebar, .topbar, .no-print { display: none !important; }
@@ -3701,11 +3716,13 @@ function renderContacts(list) {
     const avatarColors = ['#1565C0','#7C3AED','#D97706','#16A34A','#DC2626'];
     const avatarColor = avatarColors[c.id.charCodeAt(c.id.length-1) % avatarColors.length];
     const isSelected = _bulkSelected.has(c.id);
-    return '<tr onclick="showAkte(\'' + c.id + '\')" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
+    const cr = CR_OPTIONS[c.contactResult || ''] || CR_OPTIONS[''];
+    const rowClass = isSelected ? '' : cr.rowClass;
+    return '<tr onclick="showAkte(\'' + c.id + '\')" class="' + rowClass + '" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
       + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
       + '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="bulkToggle(\'' + c.id + '\')" style="width:15px;height:15px;cursor:pointer" onclick="event.stopPropagation()">'
       + '</td>'
-      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3)">' + (c.city||'') + '</div></div></div></td>'
+      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">' + (c.city||'') + (c.contactResult ? ' ' + crBadgeHtml(c.contactResult) : '') + '</div></div></div></td>'
       + '<td>' + esc(c.firstname + ' ' + c.lastname) + '</td>'
       + '<td style="font-size:12px;color:var(--text2)">' + esc(c.position||'') + '</td>'
       + '<td><span class="badge badge-gray">' + esc(c.industry||'') + '</span></td>'
@@ -3713,6 +3730,7 @@ function renderContacts(list) {
       + '<td><span class="priority-dot" style="background:' + pColor + '"></span></td>'
       + '<td style="font-size:12px;color:var(--text3)">' + (lastAct ? formatDate(lastAct.date) : '—') + '</td>'
       + '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">'
+      + '<button class="btn-icon btn-sm" data-cr-trigger="' + c.id + '" title="Gesprächsergebnis setzen" onclick="event.stopPropagation();crQuickMenu(\'' + c.id + '\',\'' + (c.contactResult||'') + '\')" style="color:' + (cr.color || 'var(--text3)') + ';font-size:13px;padding:4px 6px">' + (cr.icon || '&#9711;') + '</button>'
       + '<button class="btn-icon btn-sm" title="Akte" onclick="showAkte(\'' + c.id + '\')" style="color:var(--accent)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke-width="2"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke-width="2"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Aktivität" onclick="openActivityModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Aufgabe" onclick="openTaskModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></button>'
@@ -3805,6 +3823,9 @@ function saveContact() {
     leadLink:        document.getElementById('c-lead-link').value,
     challenges:      document.getElementById('c-challenges').value,
     sites:           document.getElementById('c-sites').value,
+    contactResult:   editingContactId
+      ? (DB.contacts.find(c => c.id === editingContactId)?.contactResult || '')
+      : '',
     created: editingContactId
       ? (DB.contacts.find(c => c.id === editingContactId)?.created || new Date().toISOString())
       : new Date().toISOString()
@@ -6548,8 +6569,10 @@ function renderAkte() {
         <div class="akte-sub">${esc([c.firstname,c.lastname].filter(Boolean).join(' '))}${c.position?` · ${esc(c.position)}`:''}</div>
         <div class="akte-meta">
           <span class="badge badge-${statusColors[c.status]||'gray'}">${esc(c.status||'')}</span>
+          ${c.contactResult ? crBadgeHtml(c.contactResult) : ''}
           ${c.priority?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${pColors[c.priority]||'var(--text3)'}"><span style="width:8px;height:8px;border-radius:50%;background:${pColors[c.priority]||'var(--text3)'}"></span>${pLabels[c.priority]||''}</span>`:''}
           ${c.industry?`<span class="badge badge-gray">${esc(c.industry)}</span>`:''}
+          <button data-cr-trigger="${c.id}" onclick="crQuickMenu('${c.id}','${c.contactResult||''}')" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text2);font-family:inherit" title="Gesprächsergebnis setzen">&#9711; Ergebnis setzen</button>
           ${c.city?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke-width="2"/></svg>${esc(c.city)}</span>`:''}
           ${c.phone?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.7 19.79 19.79 0 0 1 1.65 4.1 2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91" stroke-width="2"/></svg><a href="tel:${esc(c.phone)}" style="color:var(--accent)">${esc(c.phone)}</a></span>`:''}
           ${c.email?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke-width="2"/></svg><a href="mailto:${esc(c.email)}" style="color:var(--accent)">${esc(c.email)}</a></span>`:''}
@@ -6984,7 +7007,78 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
 })();
 
 // ══════════════════════════════════════════════════════════
-// WIEDERVORLAGEN + PUSH-BENACHRICHTIGUNGEN
+// KONTAKT-ERGEBNIS SYSTEM
+// ══════════════════════════════════════════════════════════
+const CR_OPTIONS = {
+  '':            { label: '— Kein Ergebnis',        color: '',         icon: '',   rowClass: '',               badgeClass: '' },
+  'interested':  { label: '&#128994; Interesse',       color: '#7C3AED',  icon: '&#128994;', rowClass: 'cr-row-interested',  badgeClass: 'cr-interested' },
+  'appointment': { label: '&#128197; Termin vereinbart', color: '#16A34A', icon: '&#128197;', rowClass: 'cr-row-appointment', badgeClass: 'cr-appointment' },
+  'callback':    { label: '&#128308; Rückruf gewünscht', color: '#1565C0', icon: '&#128308;', rowClass: 'cr-row-callback',    badgeClass: 'cr-callback' },
+  'mail':        { label: '&#128249; Mail senden',     color: '#D97706',  icon: '&#128249;', rowClass: 'cr-row-mail',        badgeClass: 'cr-mail' },
+  'noanswer':    { label: '&#9898; Nicht erreicht',    color: '#8A9AB0',  icon: '&#9898;',   rowClass: 'cr-row-noanswer',    badgeClass: 'cr-noanswer' },
+  'rejected':    { label: '&#128308; Abgelehnt',       color: '#DC2626',  icon: '&#128308;', rowClass: 'cr-row-rejected',    badgeClass: 'cr-rejected' },
+};
+
+function crSetResult(contactId, result) {
+  const idx = DB.contacts.findIndex(c => c.id === contactId);
+  if (idx < 0) return;
+  DB.contacts[idx].contactResult = result;
+  DB.contacts[idx].lastContact   = fmtDate(0);
+  save();
+  renderContacts();
+  if (akteContactId === contactId) renderAkte();
+  const opt = CR_OPTIONS[result];
+  if (opt && result) toast(opt.label.replace(/&#\d+;/g,'') + ' gesetzt', 'success');
+}
+
+function crBadgeHtml(result) {
+  if (!result) return '';
+  const opt = CR_OPTIONS[result];
+  if (!opt || !opt.label) return '';
+  return '<span class="cr-badge ' + opt.badgeClass + '">' + opt.icon + ' ' + opt.label.replace(/^&#\d+; /, '') + '</span>';
+}
+
+function crQuickMenu(contactId, currentResult) {
+  // Zeigt Dropdown direkt unter dem Button
+  const existing = document.getElementById('cr-dropdown-' + contactId);
+  if (existing) { existing.remove(); return; }
+
+  // Alle anderen schließen
+  document.querySelectorAll('[id^="cr-dropdown-"]').forEach(el => el.remove());
+
+  const div = document.createElement('div');
+  div.id = 'cr-dropdown-' + contactId;
+  div.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.15);padding:6px;min-width:200px';
+
+  Object.entries(CR_OPTIONS).forEach(([key, opt]) => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:' + (key === currentResult ? 'var(--bg)' : 'transparent') + ';border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--navy);text-align:left';
+    btn.innerHTML = (opt.icon || '&#10006;') + ' ' + opt.label.replace(/&#\d+; /, '');
+    btn.onmouseover = function() { this.style.background = 'var(--bg)'; };
+    btn.onmouseout  = function() { this.style.background = key === currentResult ? 'var(--bg)' : 'transparent'; };
+    btn.onclick = function(e) { e.stopPropagation(); div.remove(); crSetResult(contactId, key); };
+    div.appendChild(btn);
+  });
+
+  document.body.appendChild(div);
+
+  // Positionieren unter dem auslösenden Button
+  setTimeout(() => {
+    const trigger = document.querySelector('[data-cr-trigger="' + contactId + '"]');
+    if (trigger) {
+      const r = trigger.getBoundingClientRect();
+      div.style.top  = (r.bottom + 4) + 'px';
+      div.style.left = Math.max(4, r.left - 160) + 'px';
+    }
+  }, 0);
+
+  // Schließen bei Klick außerhalb
+  setTimeout(() => {
+    document.addEventListener('click', function close(e) {
+      if (!div.contains(e.target)) { div.remove(); document.removeEventListener('click', close); }
+    });
+  }, 10);
+}
 // ══════════════════════════════════════════════════════════
 
 function renderWiedervorlagen() {
