@@ -1348,6 +1348,20 @@ textarea { resize: vertical; min-height: 80px; }
       Aufgaben
       <span class="nav-badge" id="task-badge" style="display:none">0</span>
     </div>
+    <div class="nav-item" onclick="showPage('wiedervorlagen')" id="nav-wiedervorlagen">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke-width="2"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke-width="2"/></svg>
+      Wiedervorlagen
+      <span id="wv-badge" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('kalender')" id="nav-kalender">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke-width="2" stroke-linecap="round"/></svg>
+      Kalender
+    </div>
+    <div class="nav-section">KI & Analyse</div>
+    <div class="nav-item" onclick="showPage('radar')" id="nav-radar">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2" stroke-linecap="round"/></svg>
+      Lead-Radar
+    </div>
     <div class="nav-item" onclick="showPage('playbook')" id="nav-playbook">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg>
       Vertriebsleitfaden
@@ -1486,6 +1500,24 @@ textarea { resize: vertical; min-height: 80px; }
           <option value="">Alle Branchen</option>
         </select>
       </div>
+      <!-- Bulk-Aktionen Toolbar -->
+      <div id="bulk-toolbar" style="display:none;background:var(--accent);color:#fff;border-radius:9px;padding:10px 16px;margin-bottom:12px;display:none;align-items:center;gap:12px">
+        <span id="bulk-count" style="font-weight:700;font-size:13px"></span>
+        <div style="flex:1"></div>
+        <select id="bulk-status" class="filter-select" style="background:#fff;font-size:12px;padding:5px 28px 5px 10px;border:none" onchange="bulkSetStatus(this.value)">
+          <option value="">Status setzen...</option>
+          <option>Prospect</option><option>Lead</option><option>Qualifiziert</option>
+          <option>Angebot</option><option>Kunde</option><option>Inaktiv</option>
+        </select>
+        <select id="bulk-priority" class="filter-select" style="background:#fff;font-size:12px;padding:5px 28px 5px 10px;border:none" onchange="bulkSetPriority(this.value)">
+          <option value="">Priorität setzen...</option>
+          <option value="high">Hoch</option><option value="medium">Mittel</option><option value="low">Niedrig</option>
+        </select>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3)" onclick="bulkExportCSV()">CSV</button>
+        <button class="btn btn-sm" style="background:rgba(220,38,38,0.8);color:#fff;border:none" onclick="bulkDelete()">Löschen</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:none" onclick="bulkClear()">&#10005; Auswahl aufheben</button>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <div class="card-title" id="contacts-count">Kontakte</div>
@@ -1494,6 +1526,7 @@ textarea { resize: vertical; min-height: 80px; }
         <table class="data-table" id="contacts-table">
           <thead>
             <tr id="contacts-thead">
+              <th style="width:36px;padding:10px 8px 10px 16px"><input type="checkbox" id="bulk-select-all" onchange="bulkSelectAll(this.checked)" style="width:15px;height:15px;cursor:pointer"></th>
               <th class="sortable" onclick="contactSort('company')">Unternehmen<span class="sort-icon"><span class="up"></span><span class="down"></span></span></th>
               <th class="sortable" onclick="contactSort('name')">Ansprechpartner<span class="sort-icon"><span class="up"></span><span class="down"></span></span></th>
               <th>Position</th>
@@ -1677,6 +1710,21 @@ textarea { resize: vertical; min-height: 80px; }
       </div>
     </div>
 
+    <!-- ══ WIEDERVORLAGEN ══ -->
+    <div class="page" id="page-wiedervorlagen">
+      <div id="wv-content"></div>
+    </div>
+
+    <!-- ══ KALENDER ══ -->
+    <div class="page" id="page-kalender">
+      <div id="kalender-content"></div>
+    </div>
+
+    <!-- ══ LEAD-RADAR ══ -->
+    <div class="page" id="page-radar">
+      <div id="radar-content"></div>
+    </div>
+
     <!-- ══ REPORTS ══ -->
     <div class="page" id="page-reports">
       <div class="print-header" style="margin-bottom:24px">
@@ -1710,22 +1758,22 @@ textarea { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
-<!-- JSONBin Sync Modal -->
+<!-- Firebase Sync Modal -->
 <div class="modal-overlay" id="modal-sync">
   <div class="modal modal-xl">
     <div class="modal-header">
-      <div class="modal-title">🔄 Team-Sync einrichten</div>
+      <div class="modal-title">🔄 Team-Sync (Firebase)</div>
       <button class="btn-icon" onclick="closeModal('modal-sync')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke-width="2"/></svg></button>
     </div>
     <div class="modal-body">
 
       <!-- Connected state -->
       <div id="jb-connected-info" style="display:none;background:var(--green-light);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:#14532d;line-height:1.7">
-        <strong>✅ Team-Sync aktiv</strong> – Alle Änderungen werden automatisch synchronisiert.<br>
+        <strong>✅ Firebase Sync aktiv</strong> – Alle Änderungen werden automatisch synchronisiert.<br>
         <span id="jb-connected-meta" style="font-size:12px;opacity:.8"></span>
         <div style="margin-top:10px;display:flex;gap:8px">
           <button class="btn btn-secondary btn-sm" onclick="syncNow()">Jetzt synchronisieren</button>
-          <button class="btn btn-secondary btn-sm" onclick="showKeyUpdate()">Key aktualisieren</button>
+          <button class="btn btn-secondary btn-sm" onclick="showKeyUpdate()">URL ändern</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="syncDisconnect()">Sync trennen</button>
         </div>
       </div>
@@ -1735,31 +1783,25 @@ textarea { resize: vertical; min-height: 80px; }
         <div class="jb-setup-steps">
           <div class="jb-step">
             <div class="jb-step-num">1</div>
-            <div>Gehe zu <a href="https://jsonbin.io" target="_blank" style="color:var(--accent);font-weight:600">jsonbin.io</a> und erstelle ein <strong>kostenloses Konto</strong> (nur du musst das einmal machen – kein Login für Kollegen nötig).</div>
+            <div>Gehe zu <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent);font-weight:600">console.firebase.google.com</a> → <strong>„Projekt erstellen"</strong> → Name z.B. <em>issel-crm</em> → Google Analytics deaktivieren → <strong>„Projekt erstellen"</strong>.</div>
           </div>
           <div class="jb-step">
             <div class="jb-step-num">2</div>
-            <div>Klicke oben rechts auf deinen Namen → <strong>„API Keys"</strong> → kopiere den <strong>X-Master-Key</strong> (der lange Schlüssel der mit <code style="background:var(--bg);padding:1px 5px;border-radius:3px">$2a$</code> oder <code style="background:var(--bg);padding:1px 5px;border-radius:3px">$2b$</code> beginnt).</div>
+            <div>Im linken Menü: <strong>„Erstellen"</strong> → <strong>„Realtime Database"</strong> → <strong>„Datenbank erstellen"</strong> → Standort <strong>europe-west1</strong> wählen → <strong>„Im Testmodus starten"</strong> → <strong>„Aktivieren"</strong>.</div>
           </div>
           <div class="jb-step">
             <div class="jb-step-num">3</div>
-            <div>Klicke auf <strong>„+ Create Bin"</strong> → gib der Bin einen Namen z.B. <em>ProSales CRM</em> → klicke <strong>„Create"</strong> → kopiere die <strong>Bin ID</strong> aus der URL (z.B. <code style="background:var(--bg);padding:1px 5px;border-radius:3px">64abc123...</code>).</div>
+            <div>Die Datenbank-URL erscheint oben (z.B. <code style="background:var(--bg);padding:1px 5px;border-radius:3px">https://issel-crm-default-rtdb.europe-west1.firebasedatabase.app</code>). Diese URL kopieren und unten einfügen.</div>
           </div>
           <div class="jb-step">
             <div class="jb-step-num">4</div>
-            <div>Beide Werte unten eintragen → <strong>„Verbinden"</strong> klicken. Danach die HTML-Datei einmal neu speichern und an alle Kollegen verteilen – fertig.</div>
+            <div>URL unten eintragen → <strong>„Verbinden"</strong> klicken. Die gleiche HTML-Datei an alle Kollegen verteilen – fertig. Alle nutzen dieselbe Datenbank.</div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label class="sync-field-label" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Master Key *</label>
-            <input class="jb-input jb-input mono" id="jb-key" placeholder="$2a$10$ oder $2b$10$...">
-          </div>
-          <div>
-            <label class="sync-field-label" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Bin ID *</label>
-            <input class="jb-input jb-input mono" id="jb-bin" placeholder="64abc123def456...">
-          </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Firebase Datenbank-URL *</label>
+          <input class="jb-input" id="fb-url" placeholder="https://ihr-projekt-default-rtdb.europe-west1.firebasedatabase.app" style="font-family:monospace;font-size:12px">
         </div>
 
         <div id="jb-status" class="jb-status"></div>
@@ -2494,49 +2536,52 @@ function loadAuthUsers() {
 function saveAuthUsers(users) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(users));
   // Sync-Push wenn JSONbin konfiguriert — so werden Änderungen geräteübergreifend gespeichert
-  if (typeof syncIsConfigured === 'function' && syncIsConfigured()) {
+  if (typeof fbIsConfigured === 'function' && fbIsConfigured()) {
     syncPush();
   }
 }
 
 // ── Remote Auth-User laden (für neue Geräte ohne lokalen Cache) ──
 async function authLoadRemoteUsers() {
-  // Login-Screen: Ladeindikator anzeigen
   const sub = document.getElementById('login-sub');
   if (sub) sub.textContent = 'Benutzer werden geladen…';
 
   try {
-    const res = await fetch(`${_AUTH_JB_BASE}/${_AUTH_JB_BIN}/latest`, {
-      headers: { 'X-Master-Key': _AUTH_JB_KEY, 'X-Bin-Meta': 'false' },
-      cache: 'no-store'
-    });
-    if (!res.ok) {
-      console.warn('[Auth] JSONbin HTTP', res.status);
-      if (sub) sub.textContent = 'Bitte melden Sie sich an, um fortzufahren.';
-      return;
-    }
-    const json   = await res.json();
-    const remote = json.record || json;
+    // Firebase-URL aus localStorage oder hardcoded Default
+    let fbUrl = FB_DEFAULT_URL;
+    try {
+      const cfg = JSON.parse(localStorage.getItem('prosales_firebase_cfg') || '{}');
+      fbUrl = cfg.url || FB_DEFAULT_URL;
+    } catch(e) {}
 
-    if (remote.authUsers && remote.authUsers.length > 0) {
-      const local  = loadAuthUsers();
-      const merged = [...local];
-      remote.authUsers.forEach(ru => {
-        const exists = merged.find(u => u.id === ru.id || u.username === ru.username);
-        if (!exists) {
-          merged.push(ru);
-        } else if (ru.passwordHash && !exists.passwordHash) {
-          Object.assign(exists, ru);
-        }
-      });
-      localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
-      console.log(`[Auth] ${merged.length} Benutzer synchronisiert`);
+    // Firebase laden
+    const res = await fetch(`${fbUrl}/crm/meta.json?auth=${FB_SECRET}`, { cache: 'no-store' });
+    if (res.ok) {
+      const remote = await res.json();
+      if (remote && remote.authUsers && remote.authUsers.length > 0) {
+        _mergeAuthUsers(remote.authUsers);
+      }
     }
   } catch(e) {
     console.warn('[Auth] Remote-Load fehlgeschlagen:', e.message);
   }
 
   if (sub) sub.textContent = 'Bitte melden Sie sich an, um fortzufahren.';
+}
+
+function _mergeAuthUsers(remoteUsers) {
+  const local  = loadAuthUsers();
+  const merged = [...local];
+  remoteUsers.forEach(ru => {
+    const exists = merged.find(u => u.id === ru.id || u.username === ru.username);
+    if (!exists) {
+      merged.push(ru);
+    } else if (ru.passwordHash && !exists.passwordHash) {
+      Object.assign(exists, ru);
+    }
+  });
+  localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
+  console.log(`[Auth] ${merged.length} Benutzer synchronisiert`);
 }
 
 // ── Standard-Admin anlegen falls keine User vorhanden ─────
@@ -2933,7 +2978,7 @@ function saveLocal() {
 // Main save – always local, plus push to JSONBin when configured
 function save() {
   saveLocal();
-  if (syncIsConfigured()) syncPush();
+  if (fbIsConfigured()) syncPush();
 }
 
 function load() {
@@ -2961,615 +3006,224 @@ function load() {
 }
 
 // ══════════════════════════════════════════════════════════
-// JSONBIN SYNC ENGINE
+// FIREBASE REALTIME DATABASE SYNC ENGINE
 // ══════════════════════════════════════════════════════════
-// JSONBIN MULTI-BIN SYNC ENGINE v2
-// ──────────────────────────────────────────────────────────
-// Kontakte werden automatisch in 80KB-Chunks aufgeteilt und
-// auf mehrere JSONbin-Bins verteilt. Zusätzliche Bins werden
-// automatisch erstellt – kein manueller Aufwand.
-//
-// Bin-Struktur:
-//   Bin 0 (Haupt-Bin): deals, activities, tasks, users,
-//                       lists, _ts, _chunks (Anzahl Kontakt-Bins)
-//   Bin 1..N (Kontakt-Bins): je ~80KB Kontakte
-//
-// Config in localStorage:
-//   { key, bin, contactBins: [...], ts }
+// Konfiguration: Einmal in den Einstellungen hinterlegen
+// Kein API-Key-Chaos, kein Bin-Splitting, kein CORS-Problem
 // ══════════════════════════════════════════════════════════
 
-const JB_BASE = 'https://api.jsonbin.io/v3/b';
-const JB_CHUNK_KB = 80; // Max KB pro Kontakt-Bin
+const FB_CFG_KEY = 'prosales_firebase_cfg';
 
-// ── FEST EINGEBETTETE ZUGANGSDATEN ───────────────────────
-const JB_MASTER_KEY = '$2a$10$BaUPeXZ5IWDazW6oWn8TjOQ6tLvkEUcX3Mo1eJKf.8FswDw9Fdhya';
-const JB_BIN_ID     = '69c5195eb7ec241ddca5ef68';
+// ── Fest eingebettete Firebase-URL ───────────────────────
+const FB_DEFAULT_URL = 'https://crm-issel-default-rtdb.europe-west1.firebasedatabase.app';
+const FB_SECRET      = 'IssEL-CRM-2024-s3cur3-t0ken-xK9mP';  // Geheimer Zugriffstoken
 
-// Kontakt-Bins fest eingebettet – kein dynamisches Erstellen (verhindert CORS-Fehler)
-const JB_CONTACT_BINS_FIXED = [
-  '69d63b1636566621a88e66e9',  // CRM-Kontakte-1
-  '69d62d1636566621a88e2205',  // CRM-Kontakte-2
-  '69d62d1636566621a88e220b',  // CRM-Kontakte-3
-];
-// ─────────────────────────────────────────────────────────
+let _fbUrl    = FB_DEFAULT_URL;
+let _fbTs     = 0;
+let _fbPushTimer  = null;
+let _fbPollTimer  = null;
+let _fbPushing    = false;
+let _fbLastPush   = 0;
+let _fbActive     = false;
+const FB_POLL_MS  = 45000;  // 45 Sekunden
+const FB_PUSH_DELAY = 1200; // 1.2 Sekunden Debounce
 
-let _jbKey         = JB_MASTER_KEY;
-let _jbBin         = JB_BIN_ID;
-let _jbContactBins = [...JB_CONTACT_BINS_FIXED]; // Fest eingebettet – nie dynamisch überschreiben
-let _jbTs          = 0;
-let _jbPushTimer   = null;
-let _jbPollTimer   = null;
-let _jbConflict    = null;
-let _jbActive      = false;
-
-// ── CONFIG ───────────────────────────────────────────────
-function syncLoadConfig() {
+// ── Konfiguration laden / speichern ──────────────────────
+function fbLoadConfig() {
   try {
-    const raw = localStorage.getItem(SYNC_CFG_KEY);
-    _jbKey         = JB_MASTER_KEY;
-    _jbBin         = JB_BIN_ID;
-    _jbContactBins = [...JB_CONTACT_BINS_FIXED]; // immer fest – nie aus localStorage
+    const raw = localStorage.getItem(FB_CFG_KEY);
     if (raw) {
       const cfg = JSON.parse(raw);
-      _jbTs = cfg.ts || 0;
+      _fbUrl = cfg.url || FB_DEFAULT_URL;
+      _fbTs  = cfg.ts  || 0;
+    } else {
+      _fbUrl = FB_DEFAULT_URL;
+      _fbTs  = 0;
     }
-    syncSaveConfig();
-    return true;
   } catch(e) {
-    _jbKey         = JB_MASTER_KEY;
-    _jbBin         = JB_BIN_ID;
-    _jbContactBins = [...JB_CONTACT_BINS_FIXED];
-    return true;
+    _fbUrl = FB_DEFAULT_URL;
+  }
+  return true; // immer konfiguriert
+}
+
+function fbSaveConfig() {
+  localStorage.setItem(FB_CFG_KEY, JSON.stringify({ url: _fbUrl, ts: _fbTs }));
+}
+
+function fbIsConfigured() { return !!_fbUrl; }
+
+// ── REST-Helfer ───────────────────────────────────────────
+async function fbGet(path) {
+  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+async function fbPut(path, data) {
+  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+async function fbPatch(path, data) {
+  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+// ── PUSH ─────────────────────────────────────────────────
+function syncPush() {
+  if (!fbIsConfigured()) return;
+  clearTimeout(_fbPushTimer);
+  _fbPushTimer = setTimeout(_fbDoPush, FB_PUSH_DELAY);
+}
+
+async function _fbDoPush() {
+  if (_fbPushing) { console.log('[FB] Push läuft – übersprungen'); return; }
+  _fbPushing = true;
+  syncBarSet('syncing', 'Speichert...');
+  const ts = Date.now();
+
+  try {
+    // Kontakte als Objekt (key = contact.id) – kein Größenlimit
+    const contactsObj = {};
+    DB.contacts.forEach(c => { contactsObj[c.id.replace(/[.#$/[\]]/g,'_')] = c; });
+
+    // Meta-Daten (alles außer Kontakte)
+    const meta = {
+      deals:      DB.deals,
+      activities: DB.activities,
+      tasks:      DB.tasks,
+      users:      DB.users,
+      lists:      DB.lists,
+      authUsers:  loadAuthUsers(),
+      _ts:        ts
+    };
+
+    // Parallel speichern
+    await Promise.all([
+      fbPut('crm/contacts', contactsObj),
+      fbPut('crm/meta',     meta)
+    ]);
+
+    _fbTs      = ts;
+    _fbLastPush = Date.now();
+    _fbActive  = true;
+    _fbPushing = false;
+    fbSaveConfig();
+    syncBarSet('connected', 'Gespeichert');
+    syncSetTs();
+    console.log(`[FB] Push OK: ${DB.contacts.length} Kontakte`);
+
+  } catch(err) {
+    _fbPushing = false;
+    syncBarSet('error', 'Sync-Fehler: ' + err.message);
+    console.warn('[FB] Push error:', err.message);
   }
 }
 
-function syncSaveConfig() {
-  localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({
-    key: _jbKey, bin: _jbBin,
-    contactBins: _jbContactBins, ts: _jbTs
-  }));
+// ── POLL ─────────────────────────────────────────────────
+async function _fbDoPoll() {
+  if (!fbIsConfigured()) return;
+  if (_fbPushing) { return; }
+  if (Date.now() - _fbLastPush < 15000) { return; }
+
+  try {
+    const remote = await fbGet('crm/meta');
+    if (!remote) return;
+
+    const remoteTs    = remote._ts || 0;
+    const localTs     = _fbTs;
+    const localCount  = DB.contacts.length;
+
+    // Remote nicht neuer → nichts tun
+    if (remoteTs > 0 && remoteTs <= localTs) {
+      syncBarSet('connected', 'Aktuell');
+      syncSetTs();
+      _fbActive = true;
+      return;
+    }
+
+    // Frische Session MIT lokalen Daten → lokal hochladen
+    if (localTs === 0 && localCount > 0) {
+      console.log(`[FB] Frische Session, ${localCount} Kontakte → Push`);
+      _fbTs = remoteTs;
+      await _fbDoPush();
+      return;
+    }
+
+    // Kontakte aus Firebase laden
+    const remoteContactsObj = await fbGet('crm/contacts');
+    const remoteContacts = remoteContactsObj
+      ? Object.values(remoteContactsObj)
+      : [];
+    const remoteCount = remoteContacts.length;
+
+    // Frische Session OHNE lokale Daten → remote laden
+    if (localTs === 0 && localCount === 0) {
+      applyRemoteData({ ...remote, contacts: remoteContacts });
+      syncBarSet('connected', 'Daten geladen');
+      syncSetTs();
+      _fbActive = true;
+      return;
+    }
+
+    // Lokal hat mehr Kontakte → lokal gewinnt immer
+    if (localCount > remoteCount) {
+      console.warn(`[FB] Lokal (${localCount}) > Remote (${remoteCount}) → Push`);
+      _fbTs = remoteTs;
+      await _fbDoPush();
+      return;
+    }
+
+    // Remote ist neuer und hat mindestens genauso viele → übernehmen
+    applyRemoteData({ ...remote, contacts: remoteContacts });
+    syncBarSet('connected', 'Aktualisiert');
+    syncSetTs();
+    _fbActive = true;
+
+  } catch(err) {
+    console.warn('[FB] Poll error:', err.message);
+    if (_fbActive) syncBarSet('error', 'Sync-Fehler: ' + err.message);
+  }
 }
 
-function syncIsConfigured() { return !!(_jbKey && _jbBin); }
+// ── Polling starten ───────────────────────────────────────
+function _startPolling() {
+  clearInterval(_fbPollTimer);
+  _fbPollTimer = setInterval(_fbDoPoll, FB_POLL_MS);
+}
 
-// ── STATUS BAR ───────────────────────────────────────────
+// ── Timestamp anzeigen ────────────────────────────────────
+function syncSetTs() {
+  const el = document.getElementById('sync-ts');
+  if (el && _fbTs) el.textContent = 'Zuletzt: ' + new Date(_fbTs).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+}
+
+// ── Status-Bar ────────────────────────────────────────────
 function syncBarSet(state, msg) {
   const bar   = document.getElementById('sync-bar');
   const dot   = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
   if (!bar) return;
-  bar.className     = 'sync-bar ' + state;
-  dot.className     = 'sync-dot' + (state === 'syncing' ? ' pulse' : '');
-  label.textContent = msg;
+  bar.className = 'sync-bar ' + state;
+  if (dot) { dot.className = 'sync-dot' + (state === 'syncing' ? ' pulse' : ''); }
+  if (label) label.textContent = msg;
 }
 
-function syncSetTs() {
-  const el = document.getElementById('sync-ts');
-  if (el && _jbTs) {
-    el.textContent = 'Zuletzt: ' + new Date(_jbTs).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-  }
-}
-
-// ── APPLY REMOTE DATA ────────────────────────────────────
-function applyRemoteData(d) {
-  DB.contacts   = d.contacts   || [];
-  DB.deals      = d.deals      || [];
-  DB.activities = d.activities || [];
-  DB.tasks      = d.tasks      || [];
-  DB.users      = d.users      || [];
-  DB.settings   = d.settings   || DB.settings || {};
-  if (d.lists) {
-    DB.lists.industries = d.lists.industries || DB.lists.industries;
-    DB.lists.sources    = d.lists.sources    || DB.lists.sources;
-  }
-  // ── Login-Accounts synchronisieren ─────────────────────
-  if (d.authUsers && d.authUsers.length > 0) {
-    saveAuthUsers(d.authUsers);
-  }
-  // ── Auth-Users immer in DB.users spiegeln ───────────────
-  // Läuft nach jedem Remote-Pull damit JSONbin-Sync DB.users nicht leert
-  syncAuthUsersToCrmUsers(false);
-  _jbTs = d._ts || Date.now();
-  syncSaveConfig();
-  saveLocal();
-  updateAllContactSelects();
-  updateAllUserSelects();
-  updateTeamBadge();
-  refreshDashboard();
-  updateTaskBadge();
-  if (akteContactId && document.getElementById('page-akte')?.classList.contains('active')) renderAkte();
-  const pg = document.querySelector('.page.active')?.id;
-  if (pg === 'page-contacts')      renderContacts();
-  if (pg === 'page-pipeline')      renderPipeline();
-  if (pg === 'page-activities')    { renderActivities(); updateActivityFilters(); }
-  if (pg === 'page-tasks')         { renderTasks(); updateTaskFilters(); }
-  if (pg === 'page-standortkarte') renderStandortkarte();
-}
-
-// ── HILFSFUNKTIONEN ──────────────────────────────────────
-
-// Kontakte in ~80KB-Chunks aufteilen
-function _splitContacts(contacts) {
-  const chunks = [];
-  let current  = [];
-  let currentSize = 0;
-  const limit = JB_CHUNK_KB * 1024;
-
-  for (const c of contacts) {
-    const cSize = JSON.stringify(c).length;
-    if (currentSize + cSize > limit && current.length > 0) {
-      chunks.push(current);
-      current     = [c];
-      currentSize = cSize;
-    } else {
-      current.push(c);
-      currentSize += cSize;
-    }
-  }
-  if (current.length > 0) chunks.push(current);
-  return chunks;
-}
-
-// JSONbin PUT-Request
-async function _jbPut(binId, payload, retryCount = 0) {
-  const body = JSON.stringify(payload);
-  const res  = await fetch(`${JB_BASE}/${binId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type':    'application/json',
-      'X-Master-Key':    _jbKey,
-      'X-Bin-Versioning':'false'
-    },
-    body
-  });
-  if (res.status === 429 && retryCount === 0) {
-    await new Promise(r => setTimeout(r, 5000));
-    return _jbPut(binId, payload, 1);
-  }
-  return res;
-}
-
-// Neues Bin anlegen und ID zurückgeben
-async function _jbCreateBin(name) {
-  const res = await fetch(JB_BASE, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': _jbKey,
-      'X-Bin-Name':   name
-    },
-    body: JSON.stringify({ _init: true })
-  });
-  if (!res.ok) throw new Error('Bin-Erstellung fehlgeschlagen: HTTP ' + res.status);
-  const data = await res.json();
-  return data.metadata?.id || data.record?.metadata?.id;
-}
-
-// JSONbin GET-Request
-async function _jbGet(binId) {
-  const res = await fetch(`${JB_BASE}/${binId}/latest`, {
-    headers: { 'X-Master-Key': _jbKey, 'X-Bin-Meta': 'false' },
-    cache:   'no-store'
-  });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const json = await res.json();
-  return json.record || json;
-}
-
-// ── PUSH ─────────────────────────────────────────────────
-let _jbPushing = false;          // Lock: kein gleichzeitiger Push+Poll
-let _jbLastPush = 0;             // Timestamp letzter Push
-const JB_POLL_BLOCK_MS = 15000; // Nach Push 15s kein Poll
-
-function syncPush() {
-  if (!syncIsConfigured()) return;
-  clearTimeout(_jbPushTimer);
-  _jbPushTimer = setTimeout(_doPush, 1200); // etwas länger warten damit Batch-Saves zusammengefasst werden
-}
-
-async function _doPush() {
-  if (_jbPushing) { console.log('[Sync] Push läuft bereits – übersprungen'); return; }
-  _jbPushing = true;
-  syncBarSet('syncing', 'Speichert...');
-  const ts     = Date.now();
-  const chunks = _splitContacts(DB.contacts);
-  const totalKB = Math.round(JSON.stringify(DB.contacts).length / 1024);
-
-  console.log(`[Sync] Push: ${DB.contacts.length} Kontakte → ${chunks.length} Bin(s), ~${totalKB}KB gesamt`);
-
-  try {
-    // Kontakt-Bins immer aus fest eingebetteten IDs – kein dynamisches Erstellen
-    _jbContactBins = [...JB_CONTACT_BINS_FIXED];
-
-    // ── Kontakt-Chunks pushen ─────────────────────────────
-    for (let i = 0; i < chunks.length; i++) {
-      syncBarSet('syncing', `Speichert Teil ${i+1}/${chunks.length}...`);
-      const res = await _jbPut(_jbContactBins[i], {
-        _chunk: i,
-        _chunks: chunks.length,
-        _ts: ts,
-        contacts: chunks[i]
-      });
-      if (!res.ok) {
-        const hints = {
-          401: 'API-Key ungueltig', 403: 'API-Key ungueltig',
-          404: 'Bin nicht gefunden', 413: 'Chunk zu gross'
-        };
-        throw new Error(hints[res.status] || 'HTTP ' + res.status);
-      }
-    }
-
-    // ── Haupt-Bin pushen (ohne Kontakte) ─────────────────
-    syncBarSet('syncing', 'Speichert Stammdaten...');
-    const mainPayload = {
-      deals:        DB.deals,
-      activities:   DB.activities,
-      tasks:        DB.tasks,
-      users:        DB.users,
-      lists:        DB.lists,
-      authUsers:    loadAuthUsers(),   // ← Login-Accounts geräteübergreifend
-      _ts:          ts,
-      _chunks:      chunks.length,
-      _contactBins: _jbContactBins
-    };
-    const mainRes = await _jbPut(_jbBin, mainPayload);
-    if (!mainRes.ok) {
-      const hints = { 401:'API-Key ungueltig', 403:'API-Key ungueltig', 404:'Bin nicht gefunden' };
-      throw new Error(hints[mainRes.status] || 'HTTP ' + mainRes.status);
-    }
-
-    // ── Erfolg ────────────────────────────────────────────
-    _jbTs     = ts;
-    _jbLastPush = Date.now();
-    _jbActive = true;
-    _jbPushing = false;
-    syncSaveConfig();
-    syncBarSet('connected', 'Gespeichert');
-    syncSetTs();
-    console.log(`[Sync] Push erfolgreich: ${chunks.length} Bin(s)`);
-
-  } catch(err) {
-    _jbPushing = false;
-    syncBarSet('error', 'Sync-Fehler: ' + err.message);
-    console.warn('[Sync] Push error:', err.message);
-  }
-}
-
-// ── POLL ─────────────────────────────────────────────────
-async function _doPoll() {
-  if (!syncIsConfigured()) return;
-  // Kein Poll während Push läuft oder kurz danach
-  if (_jbPushing) { console.log('[Sync] Poll übersprungen – Push aktiv'); return; }
-  if (Date.now() - _jbLastPush < JB_POLL_BLOCK_MS) { console.log('[Sync] Poll übersprungen – kurz nach Push'); return; }
-  try {
-    // Haupt-Bin holen
-    const main = await _jbGet(_jbBin);
-    const remoteTs = main._ts || 0;
-
-    if (remoteTs <= _jbTs) {
-      syncBarSet('connected', 'Aktuell');
-      syncSetTs();
-      _jbActive = true;
-      return;
-    }
-
-    // Kontakt-Bins immer aus fest eingebetteten IDs
-    const remoteContactBins = JB_CONTACT_BINS_FIXED;
-    const chunkCount        = main._chunks || JB_CONTACT_BINS_FIXED.length;
-
-    // Alle Kontakt-Chunks laden und zusammensetzen
-    let allContacts = [];
-    for (let i = 0; i < chunkCount; i++) {
-      const binId = remoteContactBins[i];
-      if (!binId) continue;
-      try {
-        const chunk = await _jbGet(binId);
-        allContacts = allContacts.concat(chunk.contacts || []);
-      } catch(e) {
-        console.warn(`[Sync] Kontakt-Bin ${i} Ladefehler:`, e.message);
-      }
-    }
-
-    // Vollstaendigen Datensatz zusammenbauen
-    const fullRemote = {
-      contacts:   allContacts,
-      deals:      main.deals      || [],
-      activities: main.activities || [],
-      tasks:      main.tasks      || [],
-      users:      main.users      || [],
-      lists:      main.lists      || {},
-      _ts:        remoteTs
-    };
-
-    // Kontakt-Bin-IDs lokal merken
-    if (remoteContactBins.length) {
-      _jbContactBins = remoteContactBins;
-      syncSaveConfig();
-    }
-
-    const localTs = _jbTs;
-
-    // ── FALL 1: Frische Session MIT lokalen Daten ────────
-    // Lokal hochladen statt remote-Daten übernehmen
-    if (localTs === 0 && DB.contacts.length > 0) {
-      console.log(`[Sync] Frische Session, ${DB.contacts.length} lokale Kontakte → Push`);
-      await _doPush();
-      syncBarSet('connected', 'Lokale Daten hochgeladen');
-      _jbActive = true;
-      return;
-    }
-
-    // ── FALL 2: Frische Session OHNE lokale Daten ────────
-    if (localTs === 0) {
-      applyRemoteData(fullRemote);
-      syncBarSet('connected', 'Daten geladen');
-      syncSetTs();
-      _jbActive = true;
-      return;
-    }
-
-    // ── FALL 3: Remote ist nicht neuer → nichts tun ──────
-    if (remoteTs <= localTs) {
-      syncBarSet('connected', 'Aktuell');
-      syncSetTs();
-      _jbActive = true;
-      return;
-    }
-
-    // ── FALL 4: Remote ist neuer ──────────────────────────
-    const localCount  = DB.contacts.length;
-    const remoteCount = allContacts.length;
-
-    // Sicherheit: Remote hat deutlich weniger → lokal hochladen
-    if (localCount > 10 && remoteCount < localCount * 0.7) {
-      console.warn(`[Sync] Remote (${remoteCount}) < Lokal (${localCount}) → Lokal gewinnt`);
-      await _doPush();
-      syncBarSet('connected', 'Gespeichert');
-      _jbActive = true;
-      return;
-    }
-
-    // Normal: Remote hat neue/mehr Daten → anwenden
-    applyRemoteData(fullRemote);
-    syncBarSet('connected', 'Aktualisiert');
-    syncSetTs();
-    _jbActive = true;
-    // Kein Toast bei normalem Poll-Update – nur bei manuellem Sync
-
-  } catch(err) {
-    console.warn('[Sync] Poll error:', err.message);
-    if (_jbActive) {
-      const hints = { '401':'API-Key ungueltig', '403':'API-Key ungueltig' };
-      const code  = err.message.match(/\d{3}/)?.[0];
-      syncBarSet('error', 'Sync-Fehler: ' + (hints[code] || err.message));
-    }
-  }
-}
-
-function _showConflict() {
-  const bar = document.getElementById('sync-conflict-bar');
-  if (bar) bar.style.display = 'block';
-  syncBarSet('error', 'Konflikt - loesen');
-}
-
-function syncResolve(choice) {
-  const bar = document.getElementById('sync-conflict-bar');
-  if (bar) bar.style.display = 'none';
-  if (choice === 'remote' && _jbConflict) {
-    applyRemoteData(_jbConflict);
-    syncBarSet('connected', 'Server-Version uebernommen');
-    toast('Server-Version uebernommen', 'success');
-  } else {
-    _jbTs = 0;
-    _doPush();
-    toast('Lokale Version hochgeladen', 'success');
-  }
-  _jbConflict = null;
-}
-
-// ── MANUAL SYNC ──────────────────────────────────────────
-function syncNow() {
-  syncBarSet('syncing', 'Synchronisiert...');
-  _doPoll();
-  closeModal('modal-sync');
-}
-
-// ── CONNECT ──────────────────────────────────────────────
-async function syncConnect() {
-  const key = document.getElementById('jb-key')?.value?.trim();
-  const bin = document.getElementById('jb-bin')?.value?.trim();
-
-  if (!key || !bin) {
-    _jbStatusMsg('Bitte Master Key und Bin ID eintragen.', 'error');
-    return;
-  }
-
-  _jbStatusMsg('Verbinde mit JSONBin...', 'info');
-  syncBarSet('syncing', 'Verbinde...');
-
-  try {
-    const res = await fetch(`${JB_BASE}/${bin}/latest`, {
-      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
-      cache: 'no-store'
-    });
-
-    _jbKey = key; _jbBin = bin;
-
-    if (res.status === 404 || !res.ok) {
-      // Leeres Bin - unsere Daten hochladen
-      if (res.status !== 404) throw new Error('HTTP ' + res.status);
-      await _doPush();
-      _jbStatusMsg('Verbunden! Daten hochgeladen.', 'ok');
-    } else {
-      const json   = await res.json();
-      const remote = json.record || json;
-
-      if (remote && remote._ts) {
-        // Bin hat CRM-Daten - Timestamps vergleichen
-        let localTs = 0;
-        try { const lc = localStorage.getItem(SYNC_CFG_KEY); if (lc) localTs = JSON.parse(lc).ts || 0; } catch(e) {}
-
-        // Kontakt-Bin-IDs aus Remote laden
-        if (remote._contactBins) {
-          _jbContactBins = remote._contactBins;
-        }
-
-        if (localTs > remote._ts) {
-          // Lokal neuer -> hochladen
-          await _doPush();
-          _jbStatusMsg('Verbunden! Lokale Daten (neuer) hochgeladen.', 'ok');
-        } else {
-          // Remote neuer -> runterladen (inkl. Kontakt-Chunks)
-          const chunkCount = remote._chunks || 0;
-          let allContacts  = [];
-          for (let i = 0; i < chunkCount; i++) {
-            const cbId = (remote._contactBins || [])[i];
-            if (!cbId) continue;
-            try {
-              const chunk = await _jbGet(cbId);
-              allContacts = allContacts.concat(chunk.contacts || []);
-            } catch(e) { console.warn('[Sync] Chunk', i, 'Fehler:', e.message); }
-          }
-          applyRemoteData({ ...remote, contacts: allContacts });
-          _jbStatusMsg('Verbunden! Daten vom Server geladen.', 'ok');
-        }
-      } else {
-        // Bin leer/kein CRM-Inhalt -> hochladen
-        await _doPush();
-        _jbStatusMsg('Verbunden! Daten hochgeladen.', 'ok');
-      }
-    }
-
-    syncSaveConfig();
-    _jbActive = true;
-    _startPolling();
-    _updateModalConnectedState();
-    toast('JSONBin Sync aktiv!', 'success');
-
-  } catch(err) {
-    syncBarSet('error', 'Verbindung fehlgeschlagen');
-    _jbStatusMsg('Fehler: ' + err.message, 'error');
-    console.error('[Sync] Connect error:', err);
-  }
-}
-
-function _jbStatusMsg(msg, type) {
-  const el = document.getElementById('jb-status');
-  if (!el) return;
-  const styles = {
-    ok:    { bg: 'var(--green-light)',  color: 'var(--green)' },
-    error: { bg: 'var(--red-light)',    color: 'var(--red)' },
-    info:  { bg: 'var(--accent-light)', color: 'var(--accent)' }
-  };
-  const s = styles[type] || styles.info;
-  el.style.display    = 'block';
-  el.style.background = s.bg;
-  el.style.color      = s.color;
-  el.textContent      = msg;
-}
-
-function _updateModalConnectedState() {
-  const connectedInfo = document.getElementById('jb-connected-info');
-  const setupArea     = document.getElementById('jb-setup-area');
-  const connectBtn    = document.getElementById('jb-connect-btn');
-  const metaEl        = document.getElementById('jb-connected-meta');
-  if (syncIsConfigured() && _jbActive) {
-    if (connectedInfo) connectedInfo.style.display = 'block';
-    if (setupArea)     setupArea.style.display = 'none';
-    if (connectBtn)    connectBtn.style.display = 'none';
-    if (metaEl) {
-      const binInfo = _jbContactBins.length
-        ? `${1 + _jbContactBins.length} Bins (${_jbContactBins.length} Kontakt-Bin${_jbContactBins.length > 1 ? 's' : ''})`
-        : '1 Bin';
-      metaEl.textContent = `Bin ID: ${_jbBin.substring(0,8)}... | ${binInfo} | Sync: ${_jbTs ? new Date(_jbTs).toLocaleString('de-DE') : '--'}`;
-    }
-  } else {
-    if (connectedInfo) connectedInfo.style.display = 'none';
-    if (setupArea)     setupArea.style.display = 'block';
-    if (connectBtn)    connectBtn.style.display = 'inline-flex';
-  }
-}
-
-function syncDisconnect() {
-  clearInterval(_jbPollTimer);
-  // Hardcoded Key + Bin bleiben immer aktiv – nur contactBins + Timestamp zurücksetzen
-  _jbKey = JB_MASTER_KEY; _jbBin = JB_BIN_ID;
-  _jbContactBins = []; _jbTs = 0; _jbActive = false;
-  localStorage.removeItem(SYNC_CFG_KEY);
-  syncBarSet('syncing', 'Verbinde...');
-  document.getElementById('sync-ts').textContent = '';
-  setTimeout(() => syncAutoInit(), 300);
-  toast('Sync zurückgesetzt – verbinde neu...', 'info');
-}
-
-// ── KEY AKTUALISIEREN ─────────────────────────────────────
-async function syncUpdateKey(newKey) {
-  if (!newKey || newKey.trim().length < 30) { toast('Bitte gueltigen Key eingeben', 'error'); return; }
-  newKey = newKey.trim();
-  syncBarSet('syncing', 'Key wird geprueft...');
-  try {
-    const res = await fetch(`${JB_BASE}/${_jbBin}/latest`, {
-      headers: { 'X-Master-Key': newKey, 'X-Bin-Meta': 'false' },
-      cache: 'no-store'
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    _jbKey    = newKey;
-    _jbActive = true;
-    syncSaveConfig();
-    toast('Key aktualisiert - Sync aktiv', 'success');
-    _doPush();
-  } catch(err) {
-    syncBarSet('error', 'Key-Fehler: ' + err.message);
-    toast('Key ungueltig: ' + err.message, 'error');
-  }
-}
-
-function showKeyUpdate() {
-  const k = prompt('Neuen Master Key eingeben:');
-  if (k) syncUpdateKey(k);
-}
-
-// ── EXPORT ────────────────────────────────────────────────
-function exportLocalData() {
-  try {
-    const exp = {
-      _exportedAt: new Date().toISOString(), _version: 'v22',
-      contacts: DB.contacts, deals: DB.deals,
-      activities: DB.activities, tasks: DB.tasks,
-      users: DB.users, lists: DB.lists
-    };
-    const blob = new Blob([JSON.stringify(exp, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const ts   = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'ProSales_Export_' + ts + '.json';
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-    toast('Export: ' + DB.contacts.length + ' Kontakte gesichert', 'success');
-  } catch(err) { toast('Export fehlgeschlagen: ' + err.message, 'error'); }
-}
-
-// ── MODAL ─────────────────────────────────────────────────
-function openSyncModal() {
-  if (_jbKey) { const el = document.getElementById('jb-key'); if (el) el.value = _jbKey; }
-  if (_jbBin) { const el = document.getElementById('jb-bin'); if (el) el.value = _jbBin; }
-  const statusEl = document.getElementById('jb-status');
-  if (statusEl) statusEl.style.display = 'none';
-  _updateModalConnectedState();
-  document.getElementById('modal-sync').classList.add('active');
-}
-
-// ── POLLING ───────────────────────────────────────────────
-function _startPolling() {
-  clearInterval(_jbPollTimer);
-  _jbPollTimer = setInterval(_doPoll, 45000); // 45s – nicht zu aggressiv
-}
-
-// ── AUTO-INIT ─────────────────────────────────────────────
+// ── Auto-Init ─────────────────────────────────────────────
 function syncAutoInit() {
-  if (syncLoadConfig()) {
+  if (fbLoadConfig() && _fbUrl) {
     syncBarSet('syncing', 'Verbinde...');
-    _doPoll().then(() => {
+    _fbDoPoll().then(() => {
       _startPolling();
       _updateModalConnectedState();
     });
@@ -3578,6 +3232,124 @@ function syncAutoInit() {
   }
 }
 
+// ── Manueller Sync ───────────────────────────────────────
+function syncNow() {
+  syncBarSet('syncing', 'Synchronisiert...');
+  _fbDoPoll();
+  closeModal('modal-sync');
+}
+
+// ── Verbinden ────────────────────────────────────────────
+async function syncConnect() {
+  const urlInput = document.getElementById('fb-url');
+  const url = (urlInput?.value || '').trim().replace(/\/$/, '');
+
+  if (!url || !url.includes('firebaseio.com')) {
+    _fbStatusMsg('Bitte gültige Firebase-URL eingeben (endet auf firebaseio.com)', 'error');
+    return;
+  }
+
+  _fbStatusMsg('Verbinde mit Firebase...', 'info');
+  syncBarSet('syncing', 'Verbinde...');
+  _fbUrl = url;
+
+  try {
+    // Test-Lesezugriff
+    const res = await fetch(`${_fbUrl}/crm/meta.json?auth=${FB_SECRET}`, { cache: 'no-store' });
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('Zugriff verweigert – bitte Firebase-Regeln auf "Öffentlich" setzen');
+    }
+
+    const remote = (res.status === 200) ? await res.json() : null;
+
+    if (remote && remote._ts) {
+      // Firebase hat bereits Daten
+      _fbTs = 0; // frische Session → _fbDoPoll entscheidet
+      await _fbDoPoll();
+      _fbStatusMsg('Verbunden! Daten synchronisiert.', 'ok');
+    } else {
+      // Leere Datenbank → unsere Daten hochladen
+      _fbTs = 0;
+      await _fbDoPush();
+      _fbStatusMsg('Verbunden! Lokale Daten hochgeladen.', 'ok');
+    }
+
+    fbSaveConfig();
+    _fbActive = true;
+    _startPolling();
+    _updateModalConnectedState();
+
+  } catch(err) {
+    syncBarSet('error', 'Verbindung fehlgeschlagen');
+    _fbStatusMsg('Fehler: ' + err.message, 'error');
+  }
+}
+
+// ── Trennen ───────────────────────────────────────────────
+function syncDisconnect() {
+  clearInterval(_fbPollTimer);
+  clearTimeout(_fbPushTimer);
+  _fbUrl = ''; _fbTs = 0; _fbActive = false;
+  localStorage.removeItem(FB_CFG_KEY);
+  syncBarSet('noconfig', 'Sync einrichten');
+  _updateModalConnectedState();
+  toast('Sync getrennt');
+}
+
+// ── Status-Meldung im Modal ───────────────────────────────
+function _fbStatusMsg(msg, type) {
+  const el = document.getElementById('jb-status');
+  if (!el) return;
+  const styles = {
+    ok:    { bg: 'var(--green-light)',  color: 'var(--green)' },
+    error: { bg: 'var(--red-light)',    color: 'var(--red)' },
+    info:  { bg: 'var(--accent-light)', color: 'var(--accent)' }
+  };
+  const s = styles[type] || styles.info;
+  el.style.cssText = `display:block;background:${s.bg};color:${s.color};padding:10px 14px;border-radius:7px;font-size:12.5px;margin-top:12px`;
+  el.textContent = msg;
+}
+
+function _updateModalConnectedState() {
+  const connectedInfo = document.getElementById('jb-connected-info');
+  const setupArea     = document.getElementById('jb-setup-area');
+  const connectBtn    = document.getElementById('jb-connect-btn');
+  const metaEl        = document.getElementById('jb-connected-meta');
+  if (fbIsConfigured() && _fbActive) {
+    if (connectedInfo) connectedInfo.style.display = 'block';
+    if (setupArea)     setupArea.style.display = 'none';
+    if (connectBtn)    connectBtn.style.display = 'none';
+    if (metaEl)        metaEl.textContent = `Firebase: ${_fbUrl}`;
+  } else {
+    if (connectedInfo) connectedInfo.style.display = 'none';
+    if (setupArea)     setupArea.style.display = 'block';
+    if (connectBtn)    connectBtn.style.display = '';
+  }
+}
+
+function openSyncModal() {
+  const urlEl = document.getElementById('fb-url');
+  if (urlEl && _fbUrl) urlEl.value = _fbUrl;
+  const statusEl = document.getElementById('jb-status');
+  if (statusEl) statusEl.style.display = 'none';
+  _updateModalConnectedState();
+  document.getElementById('modal-sync').classList.add('active');
+}
+
+// ── Lokale Daten exportieren ──────────────────────────────
+function exportLocalData() {
+  exportData();
+}
+
+// ── Sync-Konflikt (Fallback) ──────────────────────────────
+function syncResolve(choice) {
+  const bar = document.getElementById('sync-conflict-bar');
+  if (bar) bar.style.display = 'none';
+  if (choice === 'local') { _fbTs = 0; _fbDoPush(); }
+  else _fbDoPoll();
+}
+
+function showKeyUpdate() { openSyncModal(); }
 
 function uid() { return Date.now() + Math.random().toString(36).substr(2,6); }
 
@@ -3609,34 +3381,13 @@ function updateAllListSelects(selectedIndustry, selectedSource) {
 
 // ── SAMPLE DATA ──────────────────────────────────────────
 function loadSampleData() {
-  DB.contacts = [
-    {id:'c1',company:'Dr. Hahn GmbH & Co. KG',firstname:'Michael',lastname:'Hahn',position:'Geschäftsführer',department:'Geschäftsführung',industry:'Beschlagsindustrie',employees:'ca. 400',revenue:'60 Mio. €',street:'Trompeterallee 162-170',city:'41189 Mönchengladbach',phone:'+49 2166 954-3',mobile:'',email:'m.hahn@dr-hahn.eu',linkedin:'',website:'www.dr-hahn.eu',status:'Lead',priority:'high',currentProvider:'unbekannt',contractEnd:'unbekannt',potential:120000,source:'Eigenrecherche',notes:'VdS-Affinität vorhanden (Türband 4 Inductio®). Zwei Standorte NRW. IP-Portfolio stark schützenswert. Export 60%. Familienunternehmen – direkter Entscheider.',created:new Date().toISOString(),sites:'2'},
-    {id:'c2',company:'Bayer AG – Standort Leverkusen',firstname:'Thomas',lastname:'Brandt',position:'Head of Corporate Security',department:'Security',industry:'Chemie / Pharma',employees:'~5.000',revenue:'> 1 Mrd. €',street:'Kaiser-Wilhelm-Allee 1',city:'51373 Leverkusen',phone:'+49 214 30-0',mobile:'+49 151 234567',email:'t.brandt@bayer.com',linkedin:'',website:'www.bayer.com',status:'Qualifiziert',priority:'high',currentProvider:'Securitas',contractEnd:'Q2 2026',potential:480000,source:'Messe',notes:'Aktueller Vertrag mit Securitas läuft Q2 2026 aus. Unzufrieden mit Reaktionszeiten. Benchmarking aktiv.',created:new Date().toISOString(),sites:'3'},
-    {id:'c3',company:'Rhenus Logistics GmbH',firstname:'Sandra',lastname:'Weber',position:'Facility Director',department:'Facility Management',industry:'Logistik',employees:'ca. 1.200',revenue:'250 Mio. €',street:'Am Westkai 1',city:'40221 Düsseldorf',phone:'+49 211 88-0',mobile:'',email:'s.weber@rhenus.com',linkedin:'',website:'www.rhenus.com',status:'Prospect',priority:'medium',currentProvider:'',contractEnd:'',potential:200000,source:'Eigenrecherche',notes:'Großes Distributionszentrum. Keine bekannte Sicherheitsstruktur. Hohes Diebstahlrisiko im Logistikbereich.',created:new Date().toISOString(),sites:'1'},
-  ];
-  DB.deals = [
-    {id:'d1',contactId:'c1',title:'Werkschutz beide Standorte MGL + Erkelenz',stage:'contact',probability:25,value:110400,contractType:'hourly',duration:36,hourlyRate:23.00,hoursPerMonth:400,cost:79200,margin:28.3,setupCost:4500,actualRevenue:0,closeDate:'2025-09-30',notes:'Brief gesendet, Anruf-Nachfass geplant.',created:new Date().toISOString()},
-    {id:'d2',contactId:'c2',title:'Vollversorgung Chemiewerk Leverkusen',stage:'proposal',probability:60,value:480000,contractType:'hourly',duration:48,hourlyRate:25.50,hoursPerMonth:1568,cost:336000,margin:30.0,setupCost:12000,actualRevenue:0,closeDate:'2025-07-31',notes:'Angebot eingereicht. Entscheidung ausstehend.',created:new Date().toISOString()},
-    {id:'d3',contactId:'c3',title:'Pilotprojekt Eingangskontrolle',stage:'lead',probability:15,value:85800,contractType:'flat',duration:12,hourlyRate:null,hoursPerMonth:null,cost:62000,margin:27.7,setupCost:2000,actualRevenue:0,closeDate:'2025-12-31',notes:'Erstkontakt noch ausständig.',created:new Date().toISOString()},
-  ];
-  DB.activities = [
-    {id:'a1',type:'call',contactId:'c1',date:fmtDate(-2),subject:'Erstanruf nach Brief – positiv',details:'Hr. Hahn hat sich Zeit genommen. Brief wurde gelesen. Offen für Gespräch. Termin für KW22 vereinbart.',duration:18,created:new Date().toISOString()},
-    {id:'a2',type:'email',contactId:'c2',date:fmtDate(-1),subject:'Angebot übermittelt (V2)',details:'Angebot über 480.000 €/Jahr gesendet. Inkl. SLA-Garantien und Referenzen Chemiebranche.',duration:0,created:new Date().toISOString()},
-    {id:'a3',type:'note',contactId:'c1',date:fmtDate(-5),subject:'Brief versandt – Tracking bestätigt',details:'Physischer Brief an Michael Hahn. Briefpapier Premium. Persönliche Unterschrift. Tracking: zugestellt.',duration:0,created:new Date().toISOString()},
-    {id:'a4',type:'visit',contactId:'c2',date:fmtDate(-7),subject:'Vor-Ort-Termin Leverkusen',details:'90 Min. Werkbegehung mit Brandt. Schwachstellen identifiziert: Nachtschicht unbeaufsichtigt, Einfahrten ohne Kamera.',duration:90,created:new Date().toISOString()},
-  ];
-  DB.users = [
-    {id:'u1',name:'Max Mustermann',role:'Vertriebsleiter',email:'m.mustermann@firma.de',phone:'',color:'#1565C0',active:true,created:new Date().toISOString()},
-    {id:'u2',name:'Anna Schmidt',role:'Vertriebsmitarbeiterin',email:'a.schmidt@firma.de',phone:'',color:'#7C3AED',active:true,created:new Date().toISOString()},
-    {id:'u3',name:'Tom Berger',role:'Außendienst NRW',email:'t.berger@firma.de',phone:'',color:'#16A34A',active:true,created:new Date().toISOString()},
-  ];
-  DB.tasks = [
-    {id:'t1',title:'Termin Dr. Hahn bestätigen (KW22)',contactId:'c1',assignedTo:'u1',priority:'high',due:fmtDate(5),category:'Nachfassen',notes:'Telefonisch oder per E-Mail bestätigen.',done:false,created:new Date().toISOString()},
-    {id:'t2',title:'Nachfass-Anruf Bayer – Entscheidung abfragen',contactId:'c2',assignedTo:'u2',priority:'high',due:fmtDate(2),category:'Anruf',notes:'Angebot liegt seit 3 Tagen vor.',done:false,created:new Date().toISOString()},
-    {id:'t3',title:'Erstkontakt Rhenus Logistics vorbereiten',contactId:'c3',assignedTo:'u3',priority:'medium',due:fmtDate(10),category:'Recherche',notes:'Brief ausarbeiten nach Dr.-Hahn-Template.',done:false,created:new Date().toISOString()},
-    {id:'t4',title:'Quarterly Report vorbereiten',contactId:'',assignedTo:'u1',priority:'low',due:fmtDate(20),category:'Sonstiges',notes:'',done:false,created:new Date().toISOString()},
-  ];
-  save();
+  // Keine Demo-Daten mehr – leere Datenbank für produktiven Einsatz
+  DB.contacts = [];
+  DB.deals = [];
+  DB.activities = [];
+  DB.tasks = [];
+  DB.users = [];
+  // Kein save() hier – erst speichern wenn echte Daten vorhanden
 }
 
 function fmtDate(offsetDays = 0) {
@@ -3654,26 +3405,32 @@ const pageTitles = {
   pipeline: 'Pipeline',
   activities: 'Aktivitäten',
   tasks: 'Aufgaben',
+  wiedervorlagen: 'Wiedervorlagen',
+  kalender: 'Kalender',
+  radar: 'Lead-Radar',
   team: 'Team & Nutzer',
   finanzen: 'Finanzen & Umsatz',
   reports: 'Berichte & Druckansicht',
-  playbook: 'Vertriebsleitfaden – Viktor Steinbach',
+  playbook: 'Vertriebsleitfaden',
   akte: 'Kontaktakte',
   standortkarte: 'Standortkarte'
 };
 
 const topbarActions = {
-  dashboard: `<button class="btn btn-secondary no-print" onclick="refreshDashboard()">↺ Aktualisieren</button>`,
-  contacts: `<button class="btn btn-primary no-print" onclick="openContactModal()">+ Neuer Kontakt</button>`,
-  pipeline: `<button class="btn btn-primary no-print" onclick="openDealModal()">+ Neuer Deal</button>`,
-  activities: `<button class="btn btn-primary no-print" onclick="openActivityModal()">+ Aktivität</button>`,
-  tasks: `<button class="btn btn-primary no-print" onclick="openTaskModal()">+ Aufgabe</button>`,
-  team: `<button class="btn btn-primary no-print" onclick="openUserModal()">+ Nutzer anlegen</button>`,
-  finanzen: `<button class="btn btn-secondary no-print" onclick="refreshDashboard();showPage('dashboard')">← Dashboard</button>`,
-  reports: `<button class="btn btn-secondary no-print" onclick="window.print()">🖨️ Drucken / PDF</button>`,
-  playbook: `<button class="btn btn-secondary no-print" onclick="pbReset()">↺ Neustart</button>`,
-  akte: `<div id="akte-topbar-actions" style="display:flex;gap:8px"></div>`,
-  standortkarte: `<button class="btn btn-secondary no-print" onclick="renderStandortkarte()">↺ Aktualisieren</button>`
+  dashboard: '<button class="btn btn-secondary no-print" onclick="refreshDashboard()">&#8635; Aktualisieren</button>',
+  contacts: '<button class="btn btn-secondary no-print" onclick="exportContactsCSV()">&#8595; CSV Export</button> <button class="btn btn-primary no-print" onclick="openContactModal()">+ Neuer Kontakt</button>',
+  pipeline: '<button class="btn btn-primary no-print" onclick="openDealModal()">+ Neuer Deal</button>',
+  activities: '<button class="btn btn-primary no-print" onclick="openActivityModal()">+ Aktivität</button>',
+  tasks: '<button class="btn btn-primary no-print" onclick="openTaskModal()">+ Aufgabe</button>',
+  wiedervorlagen: '<button class="btn btn-secondary no-print" id="wv-notif-btn" onclick="wvRequestNotifications()">&#128276; Benachrichtigungen</button>',
+  kalender: '<button class="btn btn-secondary no-print" onclick="kalenderPrev()">&#8592;</button> <span id="kalender-title" style="font-weight:600;padding:0 8px"></span> <button class="btn btn-secondary no-print" onclick="kalenderNext()">&#8594;</button> <button class="btn btn-primary no-print" onclick="openTaskModal()">+ Aufgabe</button>',
+  radar: '<button class="btn btn-primary no-print" onclick="radarSearch()">&#128269; Neue Suche</button>',
+  team: '<button class="btn btn-primary no-print" onclick="openAuthUsersModal()">+ Benutzer anlegen</button>',
+  finanzen: '<button class="btn btn-secondary no-print" onclick="refreshDashboard();showPage(\'dashboard\')">&#8592; Dashboard</button>',
+  reports: '<button class="btn btn-secondary no-print" onclick="window.print()">&#128424; Drucken / PDF</button>',
+  playbook: '<button class="btn btn-secondary no-print" onclick="pbReset()">&#8635; Neustart</button>',
+  akte: '<div id="akte-topbar-actions" style="display:flex;gap:8px"></div>',
+  standortkarte: '<button class="btn btn-secondary no-print" onclick="renderStandortkarte()">&#8635; Aktualisieren</button>'
 };
 
 function showPage(name) {
@@ -3697,6 +3454,9 @@ function showPage(name) {
   if (name === 'reports') renderReports();
   if (name === 'playbook') renderPlaybook();
   if (name === 'standortkarte') renderStandortkarte();
+  if (name === 'wiedervorlagen') renderWiedervorlagen();
+  if (name === 'kalender') renderKalender();
+  if (name === 'radar') renderRadar();
   if (name === 'akte') {/* rendered by showAkte */}
 }
 
@@ -3793,30 +3553,31 @@ function renderFunnel() {
 
 function renderDashTasks() {
   const tasks = DB.tasks.filter(t => !t.done).sort((a,b) => (a.due||'9999') < (b.due||'9999') ? -1 : 1).slice(0,5);
-  if (!tasks.length) { document.getElementById('dash-tasks').innerHTML = '<div class="empty-state" style="padding:30px 0"><p>Keine offenen Aufgaben 🎉</p></div>'; return; }
+  if (!tasks.length) { document.getElementById('dash-tasks').innerHTML = '<div class="empty-state" style="padding:30px 0"><p>Keine offenen Aufgaben \uD83C\uDF89</p></div>'; return; }
   document.getElementById('dash-tasks').innerHTML = tasks.map(t => {
     const c = DB.contacts.find(c => c.id === t.contactId);
     const due = t.due ? new Date(t.due) : null;
     const today = new Date(); today.setHours(0,0,0,0);
     const isOverdue = due && due < today;
     const isSoon = due && !isOverdue && (due - today) <= 3*86400000;
-    return `<div class="task-item">
-      <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}')"></div>
-      <div class="task-body">
-        <div class="task-title">${esc(t.title)}</div>
-        <div class="task-meta">
-          ${c ? `<span>${esc(c.company)}</span>` : ''}
-          ${t.due ? `<span class="task-due ${isOverdue?'overdue':isSoon?'soon':''}">${isOverdue?'⚠️ ':''}${formatDate(t.due)}</span>` : ''}
-          <span class="badge badge-${t.priority==='high'?'red':t.priority==='medium'?'orange':'green'}" style="font-size:9px;padding:1px 6px">${t.priority==='high'?'Hoch':t.priority==='medium'?'Mittel':'Niedrig'}</span>
-        </div>
-      </div>
-    </div>`;
+    return '<div class="task-item" style="cursor:pointer" onclick="editTask(\'' + t.id + '\')">'
+      + '<div class="task-check ' + (t.done?'done':'') + '" onclick="event.stopPropagation();toggleTask(\'' + t.id + '\')"></div>'
+      + '<div class="task-body">'
+      + '<div class="task-title">' + esc(t.title) + '</div>'
+      + '<div class="task-meta">'
+      + (c ? '<span style="cursor:pointer;color:var(--accent)" onclick="event.stopPropagation();showAkte(\'' + c.id + '\')">' + esc(c.company) + '</span>' : '')
+      + (t.due ? '<span class="task-due ' + (isOverdue?'overdue':isSoon?'soon':'') + '">' + (isOverdue ? '\u26A0\uFE0F ' : '') + formatDate(t.due) + '</span>' : '')
+      + '</div></div>'
+      + '<div style="display:flex;gap:4px;flex-shrink:0">'
+      + (c ? '<button class="btn-icon btn-sm" title="Leitfaden starten" onclick="event.stopPropagation();openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>' : '')
+      + '</div>'
+      + '</div>';
   }).join('');
 }
 
 function renderDashActivities() {
   const acts = [...DB.activities].sort((a,b) => b.date > a.date ? 1 : -1).slice(0,5);
-  if (!acts.length) { document.getElementById('dash-activities').innerHTML = '<p class="text-muted text-sm" style="padding:16px 0">Noch keine Aktivitäten</p>'; return; }
+  if (!acts.length) { document.getElementById('dash-activities').innerHTML = '<p style="padding:16px 0;color:var(--text3);font-size:13px">Noch keine Aktivitäten</p>'; return; }
   document.getElementById('dash-activities').innerHTML = acts.map(a => {
     const c = DB.contacts.find(c => c.id === a.contactId);
     return activityHTML(a, c);
@@ -3826,19 +3587,18 @@ function renderDashActivities() {
 function renderTopDeals() {
   const deals = [...DB.deals].filter(d => !['won','lost'].includes(d.stage)).sort((a,b) => b.value - a.value).slice(0,5);
   if (!deals.length) { document.getElementById('dash-top-deals').innerHTML = '<div class="empty-state" style="padding:30px 0"><p>Keine aktiven Deals</p></div>'; return; }
-  document.getElementById('dash-top-deals').innerHTML = `<table class="data-table">
-    <thead><tr><th>Unternehmen</th><th>Deal</th><th>Wert</th><th>Prob.</th></tr></thead>
-    <tbody>${deals.map(d => {
+  document.getElementById('dash-top-deals').innerHTML = '<table class="data-table">'
+    + '<thead><tr><th>Unternehmen</th><th>Deal</th><th>Wert</th><th>Prob.</th></tr></thead>'
+    + '<tbody>' + deals.map(d => {
       const c = DB.contacts.find(c => c.id === d.contactId);
       const stage = STAGES.find(s => s.key === d.stage);
-      return `<tr>
-        <td><strong>${esc(c ? c.company : '–')}</strong></td>
-        <td class="truncate">${esc(d.title)}</td>
-        <td style="font-weight:700;color:var(--accent)">${fmtEur(d.value)}</td>
-        <td><span class="badge badge-${d.probability >= 70?'green':d.probability>=40?'orange':'blue'}">${d.probability}%</span></td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
+      return '<tr style="cursor:pointer" onclick="' + (c ? 'showAkte(\'' + c.id + '\')' : 'editDeal(\'' + d.id + '\')') + '">'
+        + '<td><strong>' + esc(c ? c.company : '\u2013') + '</strong></td>'
+        + '<td style="font-size:12px">' + esc(d.title) + '</td>'
+        + '<td style="font-weight:700;color:var(--accent)">' + fmtEur(d.value) + '</td>'
+        + '<td><span class="badge badge-' + (d.probability >= 70 ? 'green' : d.probability >= 40 ? 'orange' : 'blue') + '">' + d.probability + '%</span></td>'
+        + '</tr>';
+    }).join('') + '</tbody></table>';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3923,10 +3683,14 @@ function renderContacts(list) {
   const raw      = list || getFilteredContacts();
   const contacts = _sortContacts(raw);
   _updateSortHeaders();
-  document.getElementById('contacts-count').textContent = `Kontakte (${contacts.length})`;
+  document.getElementById('contacts-count').textContent = 'Kontakte (' + contacts.length + ')';
   const tbody = document.getElementById('contacts-tbody');
+
+  // Bulk-Toolbar anzeigen/ausblenden
+  bulkUpdateToolbar();
+
   if (!contacts.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg></div><h3>Keine Kontakte</h3><p>Fügen Sie Ihren ersten Kontakt hinzu</p></div></td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg></div><h3>Keine Kontakte</h3><p>Fügen Sie Ihren ersten Kontakt hinzu</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = contacts.map(c => {
@@ -3936,33 +3700,25 @@ function renderContacts(list) {
     const initials = ((c.firstname||'')[0]||'') + ((c.lastname||'')[0]||'');
     const avatarColors = ['#1565C0','#7C3AED','#D97706','#16A34A','#DC2626'];
     const avatarColor = avatarColors[c.id.charCodeAt(c.id.length-1) % avatarColors.length];
-    return `<tr onclick="showAkte('${c.id}')" style="cursor:pointer">
-      <td>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="contact-avatar" style="background:${avatarColor}">${initials || '?'}</div>
-          <div>
-            <div style="font-weight:600;font-size:13px">${esc(c.company)}</div>
-            <div style="font-size:11px;color:var(--text3)">${c.city||''}</div>
-          </div>
-        </div>
-      </td>
-      <td>${esc(c.firstname + ' ' + c.lastname)}</td>
-      <td style="font-size:12px;color:var(--text2)">${esc(c.position||'')}</td>
-      <td><span class="badge badge-gray">${esc(c.industry||'')}</span></td>
-      <td><span class="badge badge-${statusColor}">${esc(c.status)}</span></td>
-      <td><span class="priority-dot" style="background:${pColor}"></span></td>
-      <td style="font-size:12px;color:var(--text3)">${lastAct ? formatDate(lastAct.date) : '—'}</td>
-      <td onclick="event.stopPropagation()">
-        <div style="display:flex;gap:4px">
-          <button class="btn-icon btn-sm" title="Akte öffnen" onclick="showAkte('${c.id}')" style="color:var(--accent)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke-width="2"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke-width="2"/></svg></button>
-          <button class="btn-icon btn-sm" title="Aktivität" onclick="openActivityModalFor('${c.id}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg></button>
-          <button class="btn-icon btn-sm" title="Aufgabe" onclick="openTaskModalFor('${c.id}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></button>
-          <button class="btn-icon btn-sm" title="Deal" onclick="openDealModalFor('${c.id}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2"/></svg></button>
-          <button class="btn-icon btn-sm" title="Vertriebsleitfaden starten" onclick="openPlaybookForContact('${c.id}')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>
-          <button class="btn-icon btn-sm" title="Löschen" onclick="deleteContact('${c.id}')" style="color:var(--red)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button>
-        </div>
-      </td>
-    </tr>`;
+    const isSelected = _bulkSelected.has(c.id);
+    return '<tr onclick="showAkte(\'' + c.id + '\')" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
+      + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
+      + '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="bulkToggle(\'' + c.id + '\')" style="width:15px;height:15px;cursor:pointer" onclick="event.stopPropagation()">'
+      + '</td>'
+      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3)">' + (c.city||'') + '</div></div></div></td>'
+      + '<td>' + esc(c.firstname + ' ' + c.lastname) + '</td>'
+      + '<td style="font-size:12px;color:var(--text2)">' + esc(c.position||'') + '</td>'
+      + '<td><span class="badge badge-gray">' + esc(c.industry||'') + '</span></td>'
+      + '<td><span class="badge badge-' + statusColor + '">' + esc(c.status) + '</span></td>'
+      + '<td><span class="priority-dot" style="background:' + pColor + '"></span></td>'
+      + '<td style="font-size:12px;color:var(--text3)">' + (lastAct ? formatDate(lastAct.date) : '—') + '</td>'
+      + '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">'
+      + '<button class="btn-icon btn-sm" title="Akte" onclick="showAkte(\'' + c.id + '\')" style="color:var(--accent)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke-width="2"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke-width="2"/></svg></button>'
+      + '<button class="btn-icon btn-sm" title="Aktivität" onclick="openActivityModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg></button>'
+      + '<button class="btn-icon btn-sm" title="Aufgabe" onclick="openTaskModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></button>'
+      + '<button class="btn-icon btn-sm" title="Leitfaden" onclick="openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>'
+      + '<button class="btn-icon btn-sm" title="Löschen" onclick="deleteContact(\'' + c.id + '\')" style="color:var(--red)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button>'
+      + '</div></td></tr>';
   }).join('');
 }
 
@@ -4547,6 +4303,7 @@ function saveTask() {
   closeModal('modal-task');
   renderTasks();
   updateTaskBadge();
+  wvUpdateBadge();
   if (akteContactId && document.getElementById('page-akte')?.classList.contains('active')) renderAkte();
   toast(editingTaskId ? 'Aufgabe aktualisiert' : 'Aufgabe gespeichert', 'success');
 }
@@ -4557,6 +4314,7 @@ function deleteTask(id) {
     save();
     renderTasks();
     updateTaskBadge();
+    wvUpdateBadge();
     toast('Aufgabe gelöscht');
   });
 }
@@ -4718,10 +4476,390 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `prosales-crm-backup-${fmtDate(0)}.json`;
+  a.download = 'prosales-crm-backup-' + fmtDate(0) + '.json';
   a.click();
   URL.revokeObjectURL(url);
   toast('Export erfolgreich', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+// CSV EXPORT
+// ══════════════════════════════════════════════════════════
+function exportContactsCSV() {
+  const contacts = getFilteredContacts();
+  const headers = ['Unternehmen','Vorname','Nachname','Position','Branche','Status','Priorität','Telefon','E-Mail','Straße','PLZ/Ort','Akt. Dienstleister','Vertragsende','Potenzial €','Quelle','Notizen','Letzter Kontakt'];
+  const rows = contacts.map(c => {
+    const lastAct = DB.activities.filter(a => a.contactId === c.id).sort((a,b) => b.date > a.date ? 1 : -1)[0];
+    return [
+      c.company, c.firstname, c.lastname, c.position, c.industry,
+      c.status, {high:'Hoch',medium:'Mittel',low:'Niedrig'}[c.priority]||c.priority,
+      c.phone, c.email, c.street, c.city,
+      c.currentProvider, c.contractEnd, c.potential||'',
+      c.source, (c.notes||'').replace(/\n/g,' ').substring(0,200),
+      lastAct ? lastAct.date : ''
+    ].map(v => '"' + String(v||'').replace(/"/g,'""') + '"');
+  });
+  const csv = '\uFEFF' + [headers.map(h => '"'+h+'"')].concat(rows).map(r => r.join(';')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'kontakte-' + fmtDate(0) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(contacts.length + ' Kontakte als CSV exportiert', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+// BULK-AKTIONEN
+// ══════════════════════════════════════════════════════════
+let _bulkSelected = new Set();
+
+function bulkToggle(id) {
+  if (_bulkSelected.has(id)) _bulkSelected.delete(id);
+  else _bulkSelected.add(id);
+  bulkUpdateToolbar();
+  // Zeile hervorheben ohne komplettes Re-Render
+  const rows = document.querySelectorAll('#contacts-tbody tr');
+  rows.forEach(row => {
+    const cb = row.querySelector('input[type=checkbox]');
+    if (cb) row.style.background = cb.checked ? 'var(--accent-light)' : '';
+  });
+}
+
+function bulkSelectAll(checked) {
+  const contacts = getFilteredContacts();
+  if (checked) contacts.forEach(c => _bulkSelected.add(c.id));
+  else _bulkSelected.clear();
+  renderContacts();
+  bulkUpdateToolbar();
+}
+
+function bulkClear() {
+  _bulkSelected.clear();
+  const allCb = document.getElementById('bulk-select-all');
+  if (allCb) allCb.checked = false;
+  renderContacts();
+  bulkUpdateToolbar();
+}
+
+function bulkUpdateToolbar() {
+  const bar = document.getElementById('bulk-toolbar');
+  const cnt = document.getElementById('bulk-count');
+  if (!bar) return;
+  if (_bulkSelected.size > 0) {
+    bar.style.display = 'flex';
+    if (cnt) cnt.textContent = _bulkSelected.size + ' Kontakt' + (_bulkSelected.size !== 1 ? 'e' : '') + ' ausgewählt';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function bulkSetStatus(status) {
+  if (!status || !_bulkSelected.size) return;
+  _bulkSelected.forEach(id => {
+    const i = DB.contacts.findIndex(c => c.id === id);
+    if (i >= 0) DB.contacts[i].status = status;
+  });
+  save(); bulkClear();
+  toast(_bulkSelected.size + ' Kontakte auf "' + status + '" gesetzt', 'success');
+  document.getElementById('bulk-status').value = '';
+}
+
+function bulkSetPriority(prio) {
+  if (!prio || !_bulkSelected.size) return;
+  _bulkSelected.forEach(id => {
+    const i = DB.contacts.findIndex(c => c.id === id);
+    if (i >= 0) DB.contacts[i].priority = prio;
+  });
+  save(); bulkClear();
+  toast('Priorität gesetzt', 'success');
+  document.getElementById('bulk-priority').value = '';
+}
+
+function bulkDelete() {
+  if (!_bulkSelected.size) return;
+  const n = _bulkSelected.size;
+  showConfirm(n + ' Kontakte und alle zugehörigen Daten unwiderruflich löschen?', () => {
+    _bulkSelected.forEach(id => {
+      DB.contacts   = DB.contacts.filter(c => c.id !== id);
+      DB.deals      = DB.deals.filter(d => d.contactId !== id);
+      DB.activities = DB.activities.filter(a => a.contactId !== id);
+      DB.tasks      = DB.tasks.filter(t => t.contactId !== id);
+    });
+    _bulkSelected.clear();
+    save(); renderContacts(); updateAllContactSelects(); refreshDashboard();
+    toast(n + ' Kontakte gelöscht');
+  });
+}
+
+function bulkExportCSV() {
+  const orig = getFilteredContacts;
+  // temporär nur ausgewählte exportieren
+  const sel = DB.contacts.filter(c => _bulkSelected.has(c.id));
+  const headers = ['Unternehmen','Vorname','Nachname','Position','Status','Telefon','E-Mail','Stadt'];
+  const rows = sel.map(c => [c.company,c.firstname,c.lastname,c.position,c.status,c.phone,c.email,c.city]
+    .map(v => '"' + String(v||'').replace(/"/g,'""') + '"'));
+  const csv = '\uFEFF' + [headers.map(h=>'"'+h+'"')].concat(rows).map(r=>r.join(';')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = 'auswahl-' + fmtDate(0) + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast(sel.length + ' Kontakte exportiert', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+// KALENDERANSICHT
+// ══════════════════════════════════════════════════════════
+let _kalYear  = new Date().getFullYear();
+let _kalMonth = new Date().getMonth(); // 0-11
+
+function kalenderPrev() {
+  _kalMonth--; if (_kalMonth < 0) { _kalMonth = 11; _kalYear--; }
+  renderKalender();
+}
+function kalenderNext() {
+  _kalMonth++; if (_kalMonth > 11) { _kalMonth = 0; _kalYear++; }
+  renderKalender();
+}
+
+function renderKalender() {
+  const el = document.getElementById('kalender-content');
+  if (!el) return;
+
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const dayNames   = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+  // Titel aktualisieren
+  const titleEl = document.getElementById('kalender-title');
+  if (titleEl) titleEl.textContent = monthNames[_kalMonth] + ' ' + _kalYear;
+
+  // Erster Tag des Monats (0=So,1=Mo...6=Sa → in Mo-first umrechnen)
+  const firstDay = new Date(_kalYear, _kalMonth, 1);
+  const lastDay  = new Date(_kalYear, _kalMonth + 1, 0);
+  let startDow = firstDay.getDay(); // 0=So
+  startDow = startDow === 0 ? 6 : startDow - 1; // 0=Mo
+
+  // Aufgaben nach Datum gruppieren
+  const tasksByDate = {};
+  DB.tasks.filter(t => t.due && !t.done).forEach(t => {
+    if (!tasksByDate[t.due]) tasksByDate[t.due] = [];
+    tasksByDate[t.due].push(t);
+  });
+
+  const today = fmtDate(0);
+
+  let html = '<div style="background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">';
+
+  // Wochentag-Header
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border)">';
+  dayNames.forEach((d,i) => {
+    html += '<div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)' + (i >= 5 ? ';color:var(--accent)' : '') + '">' + d + '</div>';
+  });
+  html += '</div>';
+
+  // Kalender-Grid
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+
+  // Leere Zellen vor dem 1.
+  for (let i = 0; i < startDow; i++) {
+    html += '<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)"></div>';
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const dateStr = _kalYear + '-' + String(_kalMonth+1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    const isToday = dateStr === today;
+    const isWeekend = ((startDow + day - 1) % 7) >= 5;
+    const tasks = tasksByDate[dateStr] || [];
+
+    html += '<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;' + (isWeekend ? 'background:#fafbfc' : '') + '">';
+    html += '<div style="font-size:13px;font-weight:' + (isToday ? '800' : '600') + ';color:' + (isToday ? '#fff' : isWeekend ? 'var(--text3)' : 'var(--navy)') + ';width:26px;height:26px;border-radius:50%;background:' + (isToday ? 'var(--accent)' : 'transparent') + ';display:flex;align-items:center;justify-content:center;margin-bottom:4px">' + day + '</div>';
+
+    tasks.slice(0,3).forEach(t => {
+      const c = DB.contacts.find(x => x.id === t.contactId);
+      const pBg = {high:'var(--red-light)',medium:'var(--orange-light)',low:'var(--green-light)'}[t.priority] || 'var(--bg)';
+      const pC  = {high:'var(--red)',medium:'var(--orange)',low:'var(--green)'}[t.priority] || 'var(--text3)';
+      html += '<div onclick="editTask(\'' + t.id + '\')" style="cursor:pointer;padding:2px 6px;border-radius:4px;background:' + pBg + ';color:' + pC + ';font-size:10px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc(t.title) + (c ? ' – ' + esc(c.company) : '') + '">'
+        + esc(t.title.length > 18 ? t.title.substring(0,18)+'…' : t.title) + '</div>';
+    });
+    if (tasks.length > 3) {
+      html += '<div style="font-size:10px;color:var(--text3);padding-left:4px">+' + (tasks.length-3) + ' weitere</div>';
+    }
+    html += '</div>';
+  }
+
+  // Auffüll-Zellen nach letztem Tag
+  const totalCells = startDow + lastDay.getDate();
+  const remainCells = (7 - (totalCells % 7)) % 7;
+  for (let i = 0; i < remainCells; i++) {
+    html += '<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)"></div>';
+  }
+
+  html += '</div></div>';
+
+  // Legende
+  html += '<div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:var(--text2)">'
+    + '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:var(--red-light);display:inline-block"></span>Hoch</span>'
+    + '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:var(--orange-light);display:inline-block"></span>Mittel</span>'
+    + '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:var(--green-light);display:inline-block"></span>Niedrig</span>'
+    + '</div>';
+
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════
+// LEAD-RADAR (KI-gestützte Neukundenrecherche)
+// ══════════════════════════════════════════════════════════
+let _radarResults = [];
+
+function renderRadar() {
+  const el = document.getElementById('radar-content');
+  if (!el) return;
+  const savedWorkerUrl = localStorage.getItem('prosales_radar_worker') || '';
+
+  el.innerHTML = '<div class="card" style="margin-bottom:20px">'
+    + '<div class="card-header"><div class="card-title">&#128269; Lead-Radar \u2013 KI-gest\u00FCtzte Neukundenrecherche</div></div>'
+    + '<div class="card-body">'
+    + '<p style="font-size:13px;color:var(--text2);margin-bottom:16px">Der Lead-Radar nutzt KI um passende Unternehmen f\u00FCr den Issel Security Vertrieb zu finden.</p>'
+
+    // Worker-URL Einstellung
+    + '<div style="background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:18px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">&#9881; Cloudflare Worker URL</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<input type="text" id="radar-worker-url" value="' + esc(savedWorkerUrl) + '" placeholder="https://issel-radar.DEIN-NAME.workers.dev" style="flex:1;padding:8px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:12px;color:var(--navy);background:#fff;outline:none">'
+    + '<button class="btn btn-secondary btn-sm" onclick="radarSaveWorkerUrl()">Speichern</button>'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--text3);margin-top:6px">Einmalig einrichten \u2192 dann funktioniert der Lead-Radar f\u00FCr alle Ger\u00E4te.</div>'
+    + '</div>'
+
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">'
+    + '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Branche / Typ</label>'
+    + '<input type="text" id="radar-industry" placeholder="z.B. Logistik, Chemie, Automotive..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;color:var(--navy);background:var(--bg);outline:none"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Region / PLZ-Bereich</label>'
+    + '<input type="text" id="radar-region" placeholder="z.B. NRW, 41xxx, M\u00F6nchengladbach..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;color:var(--navy);background:var(--bg);outline:none"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Zusatzinfos (optional)</label>'
+    + '<input type="text" id="radar-extra" placeholder="z.B. mind. 200 MA, KRITIS, Lager..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;color:var(--navy);background:var(--bg);outline:none"></div>'
+    + '</div>'
+    + '<button class="btn btn-primary" onclick="radarSearch()" id="radar-search-btn">&#128269; Suche starten</button>'
+    + '</div></div>'
+    + '<div id="radar-results"></div>';
+
+  if (_radarResults.length) radarRenderResults();
+}
+
+function radarSaveWorkerUrl() {
+  const url = (document.getElementById('radar-worker-url')?.value || '').trim();
+  localStorage.setItem('prosales_radar_worker', url);
+  toast('Worker-URL gespeichert ✓', 'success');
+}
+
+async function radarSearch() {
+  const industry  = document.getElementById('radar-industry')?.value?.trim() || '';
+  const region    = document.getElementById('radar-region')?.value?.trim() || '';
+  const extra     = document.getElementById('radar-extra')?.value?.trim() || '';
+  const workerUrl = (localStorage.getItem('prosales_radar_worker') || '').trim();
+  const resEl     = document.getElementById('radar-results');
+  const btn       = document.getElementById('radar-search-btn');
+
+  if (!industry && !region) { toast('Bitte mindestens Branche oder Region angeben', 'error'); return; }
+
+  if (!workerUrl) {
+    resEl.innerHTML = '<div style="background:var(--orange-light);border-radius:9px;padding:16px 20px;color:var(--orange);font-size:13px">'
+      + '<strong>&#9888; Cloudflare Worker nicht konfiguriert</strong><br><br>'
+      + 'Bitte oben die Worker-URL eintragen und speichern. Einmalige Einrichtung dauert ~5 Minuten.</div>';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '&#128269; Suche l\u00E4uft\u2026';
+  resEl.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)"><div class="spin" style="width:32px;height:32px;border-width:3px;display:inline-block;margin-bottom:12px"></div><br>KI analysiert passende Unternehmen\u2026</div>';
+
+  const existingCompanies = DB.contacts.slice(0,30).map(c => c.company).join(', ');
+  const prompt = 'Du bist ein Vertriebsexperte f\u00FCr Sicherheitsdienstleistungen (\u00A734a GewO).'
+    + ' Finde 8 konkrete Unternehmen als potenzielle Kunden f\u00FCr die Issel Security GmbH aus Erkelenz/NRW.'
+    + ' Kriterien: Branche="' + industry + '", Region="' + region + '"' + (extra ? ', Zusatz="' + extra + '"' : '') + '.'
+    + ' Diese Unternehmen sind bereits im CRM (nicht vorschlagen): ' + existingCompanies + '.'
+    + ' Antworte NUR mit einem JSON-Array ohne Kommentar oder Markdown:'
+    + ' [{"company":"Name","city":"Stadt","industry":"Branche","employees":"ca. X","reason":"Warum Sicherheitsbedarf","priority":"high/medium/low","website":"falls bekannt"}]';
+
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model:      'claude-opus-4-5',
+        max_tokens: 1500,
+        messages:   [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data  = await res.json();
+    const text  = data.content?.[0]?.text || '[]';
+    const clean = text.replace(/```json|```/g, '').trim();
+    _radarResults = JSON.parse(clean);
+    radarRenderResults();
+
+  } catch(e) {
+    resEl.innerHTML = '<div style="background:var(--red-light);border-radius:9px;padding:16px 20px;color:var(--red);font-size:13px">'
+      + '<strong>Fehler:</strong> ' + esc(e.message) + '</div>';
+  }
+
+  btn.disabled = false; btn.innerHTML = '&#128269; Neue Suche';
+}
+
+function radarRenderResults() {
+  const resEl = document.getElementById('radar-results');
+  if (!resEl || !_radarResults.length) return;
+  const existingNames = new Set(DB.contacts.map(c => c.company.toLowerCase()));
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:4px">';
+  _radarResults.forEach((r, i) => {
+    const alreadyIn = existingNames.has((r.company||'').toLowerCase());
+    const pBg = {high:'var(--red-light)',medium:'var(--orange-light)',low:'var(--green-light)'}[r.priority] || 'var(--bg)';
+    const pC  = {high:'var(--red)',medium:'var(--orange)',low:'var(--green)'}[r.priority] || 'var(--text3)';
+    const pL  = {high:'Hohe Priorität',medium:'Mittlere Priorität',low:'Niedrige Priorität'}[r.priority] || '';
+    html += '<div class="card" style="position:relative' + (alreadyIn ? ';opacity:.55' : '') + '">'
+      + '<div class="card-body" style="padding:16px 18px">'
+      + '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">'
+      + '<div style="flex:1"><div style="font-family:\'Outfit\',sans-serif;font-size:14px;font-weight:700;color:var(--navy)">' + esc(r.company||'') + '</div>'
+      + '<div style="font-size:12px;color:var(--text3);margin-top:2px">&#128205; ' + esc(r.city||'') + ' &nbsp;&#128188; ' + esc(r.industry||'') + (r.employees ? ' &nbsp;&#128101; ' + esc(r.employees) : '') + '</div></div>'
+      + '<span style="padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:' + pBg + ';color:' + pC + '">' + pL + '</span></div>'
+      + '<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:12px"><strong>Bedarf:</strong> ' + esc(r.reason||'') + '</div>'
+      + (alreadyIn
+        ? '<div style="font-size:11px;color:var(--text3);font-weight:600">&#10003; Bereits im CRM</div>'
+        : '<button class="btn btn-primary btn-sm" onclick="radarAddToContacts(' + i + ')">+ Zum CRM hinzufügen</button>')
+      + (r.website ? ' <a href="' + esc(r.website.startsWith('http') ? r.website : 'https://'+r.website) + '" target="_blank" class="btn btn-secondary btn-sm">&#127760; Website</a>' : '')
+      + '</div></div>';
+  });
+  html += '</div>';
+  resEl.innerHTML = html;
+}
+
+function radarAddToContacts(idx) {
+  const r = _radarResults[idx];
+  if (!r) return;
+  const newContact = {
+    id: uid(),
+    company:   r.company || '',
+    firstname: '', lastname: '',
+    position:  'Geschäftsführer / Sicherheitsverantwortlicher',
+    industry:  r.industry || '',
+    employees: r.employees || '',
+    city:      r.city || '',
+    website:   r.website || '',
+    status:    'Prospect',
+    priority:  r.priority || 'medium',
+    source:    'Lead-Radar (KI)',
+    notes:     'Lead-Radar Empfehlung: ' + (r.reason || ''),
+    department: currentUser?.department || '',
+    created:   new Date().toISOString()
+  };
+  DB.contacts.push(newContact);
+  save();
+  updateAllContactSelects();
+  refreshDashboard();
+  toast(esc(r.company) + ' zum CRM hinzugefügt', 'success');
+  radarRenderResults(); // Badge aktualisieren
 }
 
 function showImport() { document.getElementById('modal-import').classList.add('active'); }
@@ -4737,24 +4875,45 @@ function importData() {
     try {
       const d = JSON.parse(e.target.result);
 
-      // ── Format A: Vollständiges CRM-Backup (hat "contacts"-Key als Objekt) ──
+      // ── Format A: Vollständiges CRM-Backup ──
       if (d.contacts && !Array.isArray(d)) {
         if (mode === 'replace') {
+          // Alles komplett ersetzen
           DB.contacts   = d.contacts   || [];
           DB.deals      = d.deals      || [];
           DB.activities = d.activities || [];
           DB.tasks      = d.tasks      || [];
+          if (d.users  && d.users.length)  DB.users  = d.users;
+          if (d.lists) {
+            DB.lists.industries = d.lists.industries || DB.lists.industries;
+            DB.lists.sources    = d.lists.sources    || DB.lists.sources;
+          }
           save();
           closeModal('modal-import');
-          renderContacts(); updateAllContactSelects(); refreshDashboard();
-          toast(`Komplett-Import: ${DB.contacts.length} Kontakte geladen`, 'success');
+          renderContacts(); updateAllContactSelects(); updateAllUserSelects();
+          updateTeamBadge(); refreshDashboard(); updateTaskBadge();
+          toast(`Import: ${DB.contacts.length} Kontakte, ${DB.tasks.length} Aufgaben, ${DB.activities.length} Aktivitäten`, 'success');
         } else {
-          // Merge: Kontakte zusammenführen
-          const incoming = d.contacts || [];
-          mergeContacts(incoming);
+          // Merge: Kontakte zusammenführen, Rest ergänzen
+          mergeContacts(d.contacts || []);
+
+          // Aufgaben: neue hinzufügen, bestehende nicht doppeln
+          const existingTaskIds = new Set(DB.tasks.map(t => t.id));
+          (d.tasks || []).forEach(t => { if (!existingTaskIds.has(t.id)) DB.tasks.push(t); });
+
+          // Aktivitäten: neue hinzufügen
+          const existingActIds = new Set(DB.activities.map(a => a.id));
+          (d.activities || []).forEach(a => { if (!existingActIds.has(a.id)) DB.activities.push(a); });
+
+          // Deals: neue hinzufügen
+          const existingDealIds = new Set(DB.deals.map(d2 => d2.id));
+          (d.deals || []).forEach(d2 => { if (!existingDealIds.has(d2.id)) DB.deals.push(d2); });
+
           save();
           closeModal('modal-import');
-          renderContacts(); updateAllContactSelects(); refreshDashboard();
+          renderContacts(); updateAllContactSelects(); updateAllUserSelects();
+          updateTeamBadge(); refreshDashboard(); updateTaskBadge();
+          toast(`Import: ${DB.contacts.length} Kontakte, ${DB.tasks.length} Aufgaben, ${DB.activities.length} Aktivitäten`, 'success');
         }
         return;
       }
@@ -4763,16 +4922,13 @@ function importData() {
       if (Array.isArray(d)) {
         if (mode === 'replace') {
           DB.contacts = d;
-          save();
-          closeModal('modal-import');
-          renderContacts(); updateAllContactSelects(); refreshDashboard();
-          toast(`${d.length} Kontakte importiert (bestehende ersetzt)`, 'success');
         } else {
           mergeContacts(d);
-          save();
-          closeModal('modal-import');
-          renderContacts(); updateAllContactSelects(); refreshDashboard();
         }
+        save();
+        closeModal('modal-import');
+        renderContacts(); updateAllContactSelects(); refreshDashboard();
+        toast(`${DB.contacts.length} Kontakte importiert`, 'success');
         return;
       }
 
@@ -6048,13 +6204,20 @@ function pbSaveToContact(isPositive) {
   };
   DB.activities.push(act);
 
-  // Update contact record
+  // Update contact record + Gesprächsnotiz in Vertriebsnotizen speichern
   if (contactId) {
     const ci = DB.contacts.findIndex(c => c.id === contactId);
     if (ci >= 0) {
       DB.contacts[ci].lastContact = fmtDate(0);
       if (isPositive && DB.contacts[ci].status !== 'Kunde') {
         DB.contacts[ci].status = 'Kunde';
+      }
+      // Gesprächsnotizen an bestehende Vertriebsnotizen anhängen
+      if (details && details.trim()) {
+        const existing = DB.contacts[ci].salesNotes || '';
+        const timestamp = new Date().toLocaleDateString('de-DE') + ' – ';
+        const separator = existing ? '\n\n──────────────\n' : '';
+        DB.contacts[ci].salesNotes = existing + separator + timestamp + details.trim();
       }
     }
   }
@@ -6816,8 +6979,185 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
   updateTeamBadge();
   refreshDashboard();
   updateTaskBadge();
+  wvInit();
   syncAutoInit();
 })();
+
+// ══════════════════════════════════════════════════════════
+// WIEDERVORLAGEN + PUSH-BENACHRICHTIGUNGEN
+// ══════════════════════════════════════════════════════════
+
+function renderWiedervorlagen() {
+  const el = document.getElementById('wv-content');
+  if (!el) return;
+
+  const today    = fmtDate(0);
+  const in7days  = fmtDate(7);
+  const in30days = fmtDate(30);
+
+  // Alle offenen Aufgaben mit Fälligkeitsdatum
+  const allTasks = DB.tasks.filter(t => !t.done);
+
+  const overdue  = allTasks.filter(t => t.due && t.due < today).sort((a,b) => a.due > b.due ? 1 : -1);
+  const todayT   = allTasks.filter(t => t.due === today);
+  const week     = allTasks.filter(t => t.due > today && t.due <= in7days).sort((a,b) => a.due > b.due ? 1 : -1);
+  const month    = allTasks.filter(t => t.due > in7days && t.due <= in30days).sort((a,b) => a.due > b.due ? 1 : -1);
+  const later    = allTasks.filter(t => t.due > in30days).sort((a,b) => a.due > b.due ? 1 : -1);
+  const nodate   = allTasks.filter(t => !t.due);
+
+  // Benachrichtigungs-Status
+  const notifGranted = Notification?.permission === 'granted';
+  const notifDenied  = Notification?.permission === 'denied';
+
+  let html = '';
+
+  // Benachrichtigungs-Banner
+  if (!notifGranted && !notifDenied) {
+    html += `<div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" style="color:var(--accent);flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke-width="2"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke-width="2"/></svg>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13.5px;color:var(--navy)">Push-Benachrichtigungen aktivieren</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Erhalte automatische Erinnerungen für fällige Aufgaben – auch wenn das CRM im Hintergrund läuft.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="wvRequestNotifications()">Aktivieren</button>
+    </div>`;
+  } else if (notifGranted) {
+    html += `<div style="background:var(--green-light);border:1px solid var(--green);border-radius:10px;padding:10px 16px;margin-bottom:20px;font-size:12.5px;color:var(--green);font-weight:600;display:flex;align-items:center;gap:8px">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke-width="2"/></svg>
+      Push-Benachrichtigungen aktiv
+    </div>`;
+  }
+
+  // KPI-Zeile
+  html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+    <div class="kpi-card" style="--kpi-color:var(--red)"><div class="kpi-label">Überfällig</div><div class="kpi-value" style="color:var(--red)">${overdue.length}</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--orange)"><div class="kpi-label">Heute fällig</div><div class="kpi-value" style="color:var(--orange)">${todayT.length}</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Diese Woche</div><div class="kpi-value">${week.length}</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--green)"><div class="kpi-label">Dieser Monat</div><div class="kpi-value">${month.length}</div></div>
+  </div>`;
+
+  // Gruppen rendern
+  html += wvGroup('🔴 Überfällig', overdue, 'var(--red)', 'var(--red-light)');
+  html += wvGroup('🟡 Heute', todayT, 'var(--orange)', 'var(--orange-light)');
+  html += wvGroup('📅 Diese Woche', week, 'var(--accent)', 'var(--accent-light)');
+  html += wvGroup('📆 Dieser Monat', month, 'var(--text2)', 'var(--bg)');
+  html += wvGroup('⏳ Später', later, 'var(--text3)', 'var(--bg)');
+  if (nodate.length) html += wvGroup('📋 Kein Datum', nodate, 'var(--text3)', 'var(--bg)');
+
+  if (!allTasks.length) {
+    html += `<div class="empty-state"><div class="empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4" stroke-width="2"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></div><h3>Keine offenen Aufgaben</h3><p>Alle Wiedervorlagen sind erledigt ✓</p></div>`;
+  }
+
+  el.innerHTML = html;
+  wvUpdateBadge();
+}
+
+function wvGroup(title, tasks, color, bg) {
+  if (!tasks.length) return '';
+  return `
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header" style="background:${bg}">
+      <div class="card-title" style="color:${color}">${title} <span style="font-weight:400;color:${color};font-size:12px">(${tasks.length})</span></div>
+    </div>
+    <div style="padding:4px 0">
+      ${tasks.map(t => wvTaskRow(t)).join('')}
+    </div>
+  </div>`;
+}
+
+function wvTaskRow(t) {
+  const c = DB.contacts.find(x => x.id === t.contactId);
+  const u = DB.users.find(x => x.id === t.assignedTo);
+  const today = fmtDate(0);
+  const isOverdue = t.due && t.due < today;
+  const prioColor = { high: 'var(--red)', medium: 'var(--orange)', low: 'var(--green)' }[t.priority] || 'var(--text3)';
+  const prioLabel = { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }[t.priority] || '';
+  const contactHtml = c ? '<span>\u21B3 ' + esc(c.company) + '</span>' : '';
+  const catHtml = t.category ? '<span class="badge badge-gray" style="font-size:10px">' + esc(t.category) + '</span>' : '';
+  const userHtml = u ? '<span style="display:flex;align-items:center;gap:4px"><span style="width:14px;height:14px;border-radius:50%;background:' + (u.color || 'var(--accent)') + ';display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">' + esc((u.name || '?')[0]) + '</span>' + esc(u.name) + '</span>' : '';
+  const dueColor = isOverdue ? 'var(--red)' : 'var(--text2)';
+  const dueHtml = t.due ? '<div style="font-size:12px;font-weight:600;color:' + dueColor + '">' + (isOverdue ? '⚠ ' : '') + formatDate(t.due) + '</div>' : '';
+
+  return '<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s"'
+    + ' onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'"'
+    + ' onclick="editTask(\'' + t.id + '\')">'
+    + '<div onclick="event.stopPropagation();wvToggleTask(\'' + t.id + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s"'
+    + ' onmouseover="this.style.background=\'var(--green-light)\'" onmouseout="this.style.background=\'\'"></div>'
+    + '<div style="flex:1;min-width:0">'
+    + '<div style="font-size:13.5px;font-weight:500;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
+    + '<div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">'
+    + contactHtml + catHtml + userHtml
+    + '</div></div>'
+    + '<div style="text-align:right;flex-shrink:0">'
+    + dueHtml
+    + '<div style="font-size:11px;color:' + prioColor + ';font-weight:600;margin-top:2px">' + prioLabel + '</div>'
+    + '</div></div>';
+}
+
+function wvToggleTask(id) {
+  const t = DB.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.done = !t.done;
+  save();
+  updateTaskBadge();
+  wvUpdateBadge();
+  renderWiedervorlagen();
+  toast(t.done ? 'Aufgabe erledigt ✓' : 'Aufgabe wieder geöffnet', t.done ? 'success' : '');
+}
+
+function wvUpdateBadge() {
+  const today  = fmtDate(0);
+  const urgent = DB.tasks.filter(t => !t.done && t.due && t.due <= today).length;
+  const badge  = document.getElementById('wv-badge');
+  const mobBadge = document.getElementById('wv-mob-badge');
+  if (badge) { badge.textContent = urgent; badge.style.display = urgent > 0 ? '' : 'none'; }
+  if (mobBadge) { mobBadge.textContent = urgent; mobBadge.style.display = urgent > 0 ? '' : 'none'; }
+}
+
+// ── Push-Benachrichtigungen ───────────────────────────────
+async function wvRequestNotifications() {
+  if (!('Notification' in window)) {
+    toast('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt', 'error');
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    toast('Push-Benachrichtigungen aktiviert! ✓', 'success');
+    wvCheckAndNotify();
+    renderWiedervorlagen();
+  } else {
+    toast('Benachrichtigungen wurden abgelehnt – Einstellung im Browser ändern', 'error');
+  }
+}
+
+function wvCheckAndNotify() {
+  if (Notification?.permission !== 'granted') return;
+  const today    = fmtDate(0);
+  const overdue  = DB.tasks.filter(t => !t.done && t.due && t.due < today);
+  const dueToday = DB.tasks.filter(t => !t.done && t.due === today);
+
+  if (overdue.length > 0) {
+    new Notification('Issel CRM \u2013 \u26A0\uFE0F \u00DCberf\u00E4llige Aufgaben', {
+      body: overdue.length + ' Aufgabe' + (overdue.length > 1 ? 'n sind' : ' ist') + ' \u00FCberf\u00E4llig'
+    });
+  } else if (dueToday.length > 0) {
+    new Notification('Issel CRM \u2013 Heute f\u00E4llig', {
+      body: dueToday.length + ' Aufgabe' + (dueToday.length > 1 ? 'n' : '') + ' heute f\u00E4llig'
+    });
+  }
+}
+
+// Beim Start und täglich prüfen
+function wvInit() {
+  wvUpdateBadge();
+  wvCheckAndNotify();
+  // Täglich um 8 Uhr prüfen
+  setInterval(() => {
+    const h = new Date().getHours();
+    if (h === 8) wvCheckAndNotify();
+    wvUpdateBadge();
+  }, 60 * 60 * 1000); // stündlich prüfen
+}
 
 /* ══════════════════════════════════════════════════════════════
    STANDORTKARTE – Alle Kontakte als Übersichtskarte
@@ -7708,13 +8048,14 @@ function deptFillCheckboxes(str) {
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     Kontakte
   </button>
-  <button class="mob-nav-btn" id="mobnav-pipeline" onclick="showPage('pipeline');setMobNav('pipeline')">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    Pipeline
-  </button>
   <button class="mob-nav-btn" id="mobnav-tasks" onclick="showPage('tasks');setMobNav('tasks')">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     Aufgaben
+  </button>
+  <button class="mob-nav-btn" id="mobnav-wiedervorlagen" onclick="showPage('wiedervorlagen');setMobNav('wiedervorlagen')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Vorlagen
+    <span id="wv-mob-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px"></span>
   </button>
   <button class="mob-nav-btn" id="mobnav-more" onclick="toggleMobileMenu()">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
