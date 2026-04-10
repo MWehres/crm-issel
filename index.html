@@ -3337,15 +3337,13 @@ function syncBarSet(state, msg) {
 
 // ── Auto-Init ─────────────────────────────────────────────
 function syncAutoInit() {
-  if (fbLoadConfig() && _fbUrl) {
-    syncBarSet('syncing', 'Verbinde...');
-    _fbDoPoll().then(() => {
-      _startPolling();
-      _updateModalConnectedState();
-    });
-  } else {
-    syncBarSet('noconfig', 'Sync einrichten');
-  }
+  // Immer die eingebettete URL verwenden – kein manuelles Einrichten nötig
+  fbLoadConfig(); // lädt gespeicherten Timestamp, setzt _fbUrl auf FB_DEFAULT_URL
+  syncBarSet('syncing', 'Verbinde...');
+  _fbDoPoll().then(() => {
+    _startPolling();
+    _updateModalConnectedState();
+  });
 }
 
 // ── Manueller Sync ───────────────────────────────────────
