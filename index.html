@@ -1860,60 +1860,24 @@ textarea { resize: vertical; min-height: 80px; }
 
 <!-- Firebase Sync Modal -->
 <div class="modal-overlay" id="modal-sync">
-  <div class="modal modal-xl">
+  <div class="modal">
     <div class="modal-header">
       <div class="modal-title">🔄 Team-Sync (Firebase)</div>
       <button class="btn-icon" onclick="closeModal('modal-sync')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke-width="2"/></svg></button>
     </div>
     <div class="modal-body">
-
-      <!-- Connected state -->
-      <div id="jb-connected-info" style="display:none;background:var(--green-light);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:#14532d;line-height:1.7">
+      <div id="jb-connected-info" style="background:var(--green-light);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:#14532d;line-height:1.7">
         <strong>✅ Firebase Sync aktiv</strong> – Alle Änderungen werden automatisch synchronisiert.<br>
-        <span id="jb-connected-meta" style="font-size:12px;opacity:.8"></span>
+        <span id="jb-connected-meta" style="font-size:12px;opacity:.8">crm-issel-default-rtdb.europe-west1.firebasedatabase.app</span>
         <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="syncNow()">Jetzt synchronisieren</button>
-          <button class="btn btn-secondary btn-sm" onclick="showKeyUpdate()">URL ändern</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="syncDisconnect()">Sync trennen</button>
+          <button class="btn btn-secondary btn-sm" onclick="syncNow()">↺ Jetzt synchronisieren</button>
         </div>
       </div>
-
-      <!-- Setup steps -->
-      <div id="jb-setup-area">
-        <div class="jb-setup-steps">
-          <div class="jb-step">
-            <div class="jb-step-num">1</div>
-            <div>Gehe zu <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent);font-weight:600">console.firebase.google.com</a> → <strong>„Projekt erstellen"</strong> → Name z.B. <em>issel-crm</em> → Google Analytics deaktivieren → <strong>„Projekt erstellen"</strong>.</div>
-          </div>
-          <div class="jb-step">
-            <div class="jb-step-num">2</div>
-            <div>Im linken Menü: <strong>„Erstellen"</strong> → <strong>„Realtime Database"</strong> → <strong>„Datenbank erstellen"</strong> → Standort <strong>europe-west1</strong> wählen → <strong>„Im Testmodus starten"</strong> → <strong>„Aktivieren"</strong>.</div>
-          </div>
-          <div class="jb-step">
-            <div class="jb-step-num">3</div>
-            <div>Die Datenbank-URL erscheint oben (z.B. <code style="background:var(--bg);padding:1px 5px;border-radius:3px">https://issel-crm-default-rtdb.europe-west1.firebasedatabase.app</code>). Diese URL kopieren und unten einfügen.</div>
-          </div>
-          <div class="jb-step">
-            <div class="jb-step-num">4</div>
-            <div>URL unten eintragen → <strong>„Verbinden"</strong> klicken. Die gleiche HTML-Datei an alle Kollegen verteilen – fertig. Alle nutzen dieselbe Datenbank.</div>
-          </div>
-        </div>
-
-        <div style="margin-bottom:12px">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);display:block;margin-bottom:5px">Firebase Datenbank-URL *</label>
-          <input class="jb-input" id="fb-url" placeholder="https://ihr-projekt-default-rtdb.europe-west1.firebasedatabase.app" style="font-family:monospace;font-size:12px">
-        </div>
-
-        <div id="jb-status" class="jb-status"></div>
-      </div>
-
+      <div id="jb-status" class="jb-status"></div>
     </div>
     <div class="modal-footer" style="justify-content:space-between;align-items:center">
       <button class="btn btn-secondary" onclick="exportLocalData()">Lokale Daten exportieren</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="closeModal('modal-sync')">Schliessen</button>
-        <button class="btn btn-primary" id="jb-connect-btn" onclick="syncConnect()">Verbinden</button>
-      </div>
+      <button class="btn btn-secondary" onclick="closeModal('modal-sync')">Schliessen</button>
     </div>
   </div>
 </div>
@@ -3358,8 +3322,8 @@ async function syncConnect() {
   const urlInput = document.getElementById('fb-url');
   const url = (urlInput?.value || '').trim().replace(/\/$/, '');
 
-  if (!url || !url.includes('firebaseio.com')) {
-    _fbStatusMsg('Bitte gültige Firebase-URL eingeben (endet auf firebaseio.com)', 'error');
+  if (!url || (!url.includes('firebaseio.com') && !url.includes('firebasedatabase.app'))) {
+    _fbStatusMsg('Bitte gültige Firebase-URL eingeben (z.B. https://...firebasedatabase.app)', 'error');
     return;
   }
 
