@@ -18,6 +18,26 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
+/* ── LEAFLET ISOLATION: verhindert dass Leaflet-CSS globale SVG/DOM-Elemente beeinflusst ── */
+/* Alle Leaflet-Positionen nur innerhalb echter Map-Container */
+.leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow,
+.leaflet-tile-container, .leaflet-image-layer, .leaflet-layer,
+.leaflet-zoom-box { position: absolute !important; }
+/* SVGs AUSSERHALB von Leaflet-Containern werden normal dargestellt */
+svg:not(.leaflet-pane svg):not(.leaflet-container svg) {
+  position: static;
+  max-width: unset;
+}
+/* Keine Leaflet-Stile in der App */
+#main svg, .card svg, .modal svg, .sidebar svg, .topbar svg,
+.akte-header svg, .akte-meta svg, .akte-meta-item svg,
+.tl-icon svg, .task-item svg, .nav-icon,
+.btn-icon svg, .kpi-card svg {
+  position: static !important;
+  left: unset !important;
+  top: unset !important;
+}</style>
+<style>
 :root {
   --navy: #0D1B2A;
   --navy2: #1A2B3C;
@@ -47,6 +67,10 @@
   --shadow: 0 2px 12px rgba(13,27,42,0.08);
   --shadow-lg: 0 8px 32px rgba(13,27,42,0.12);
 }
+
+/* ── GLOBALE SVG-SCHUTZREGEL – verhindert Leaflet-Interferenz ── */
+body svg:not([class*="leaflet"]) { position: static !important; left: auto !important; top: auto !important; }
+#sk-map svg, .leaflet-pane svg, .leaflet-container svg { position: absolute !important; left: 0 !important; top: 0 !important; }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -4116,11 +4140,11 @@ function deleteDealFromModal() {
 // ACTIVITIES
 // ══════════════════════════════════════════════════════════
 const actTypeIcon = {
-  call: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.7 19.79 19.79 0 0 1 1.65 4.1 2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91" stroke-width="2"/></svg>`,
-  email: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke-width="2"/></svg>`,
-  visit: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2"/></svg>`,
-  note: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-width="2"/><polyline points="14,2 14,8 20,8" stroke-width="2"/></svg>`,
-  deal: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2"/></svg>`
+  call:  `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.7 19.79 19.79 0 0 1 1.65 4.1 2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91" stroke-width="2"/></svg>`,
+  email: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke-width="2"/></svg>`,
+  visit: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2"/></svg>`,
+  note:  `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-width="2"/><polyline points="14,2 14,8 20,8" stroke-width="2"/></svg>`,
+  deal:  `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2"/></svg>`
 };
 const actTypeClass = {call:'tl-call',email:'tl-email',visit:'tl-visit',note:'tl-note',deal:'tl-deal'};
 const actTypeLabel = {call:'Anruf',email:'E-Mail',visit:'Besuch',note:'Notiz',deal:'Deal-Update'};
@@ -6636,76 +6660,79 @@ function renderAkte() {
 
   el.innerHTML = `
     <!-- ── HEADER ── -->
-    <div class="akte-header">
-      <div class="akte-avatar" style="background:${avatarColor}">${initials||'?'}</div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;box-shadow:0 1px 4px rgba(0,0,0,.06);padding:24px 28px;margin-bottom:20px;display:flex;align-items:flex-start;gap:20px">
+      <div style="width:64px;height:64px;min-width:64px;border-radius:16px;background:${avatarColor};display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:22px;color:#fff">${initials||'?'}</div>
       <div style="flex:1;min-width:0">
-        <div class="akte-name">${esc(c.company)}</div>
-        <div class="akte-sub">${esc([c.firstname,c.lastname].filter(Boolean).join(' '))}${c.position?` · ${esc(c.position)}`:''}</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:#0D1B2A">${esc(c.company)}</div>
+        <div style="font-size:13px;color:#5A6B7B;margin-top:3px">${esc([c.firstname,c.lastname].filter(Boolean).join(' '))}${c.position?` · ${esc(c.position)}`:''}</div>
         <div class="akte-meta">
           <span class="badge badge-${statusColors[c.status]||'gray'}">${esc(c.status||'')}</span>
           ${c.contactResult ? crBadgeHtml(c.contactResult) : ''}
           ${c.priority?`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${pColors[c.priority]||'var(--text3)'}"><span style="width:8px;height:8px;border-radius:50%;background:${pColors[c.priority]||'var(--text3)'}"></span>${pLabels[c.priority]||''}</span>`:''}
           ${c.industry?`<span class="badge badge-gray">${esc(c.industry)}</span>`:''}
-          <button data-cr-trigger="${c.id}" onclick="crQuickMenu('${c.id}','${c.contactResult||''}')" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text2);font-family:inherit" title="Gesprächsergebnis setzen">&#9711; Ergebnis setzen</button>
-          ${c.city?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke-width="2"/></svg>${esc(c.city)}</span>`:''}
-          ${c.phone?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.7 19.79 19.79 0 0 1 1.65 4.1 2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91" stroke-width="2"/></svg><a href="tel:${esc(c.phone)}" style="color:var(--accent)">${esc(c.phone)}</a></span>`:''}
-          ${c.email?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke-width="2"/></svg><a href="mailto:${esc(c.email)}" style="color:var(--accent)">${esc(c.email)}</a></span>`:''}
-          ${c.website?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="2"/></svg><a href="${esc(c.website)}" target="_blank" style="color:var(--accent)">${esc(c.website.replace(/^https?:\/\//,''))}</a></span>`:''}
+          <button data-cr-trigger="${c.id}" onclick="crQuickMenu('${c.id}','${c.contactResult||''}')" style="background:#F1F5F9;border:1px solid #DDE3EA;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;color:#5A6B7B;font-family:inherit">&#9711; Ergebnis setzen</button>
+          ${c.city?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke-width="2"/></svg>${esc(c.city)}</span>`:''}
+          ${c.phone?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12.7 19.79 19.79 0 0 1 1.65 4.1 2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91" stroke-width="2"/></svg><a href="tel:${esc(c.phone)}" style="color:#1565C0">${esc(c.phone)}</a></span>`:''}
+          ${c.email?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke-width="2"/></svg><a href="mailto:${esc(c.email)}" style="color:#1565C0">${esc(c.email)}</a></span>`:''}
+          ${c.website?`<span class="akte-meta-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="2"/></svg><a href="${esc(c.website)}" target="_blank" style="color:#1565C0">${esc(c.website.replace(/^https?:\/\//,''))}</a></span>`:''}
         </div>
       </div>
     </div>
 
     <!-- ── KPI LEISTE ── -->
-    <div class="akte-kpis">
-      <div class="akte-kpi" style="--kpi-color:var(--accent)">
-        <div class="akte-kpi-label">Aktivitäten</div>
-        <div class="akte-kpi-value">${activities.length}</div>
-        <div class="akte-kpi-sub">${activities[0]?'Letzter: '+formatDate(activities[0].date):'Keine Einträge'}</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#1565C0;border-radius:10px 10px 0 0"></div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:6px">Aktivitäten</div>
+        <div style="font-size:22px;font-weight:700;color:#0D1B2A;line-height:1">${activities.length}</div>
+        <div style="font-size:11px;color:#8A9AB0;margin-top:4px">${activities[0]?'Letzter: '+formatDate(activities[0].date):'Keine Einträge'}</div>
       </div>
-      <div class="akte-kpi" style="--kpi-color:var(--orange)">
-        <div class="akte-kpi-label">Offene Aufgaben</div>
-        <div class="akte-kpi-value" style="color:${overdueTasks.length?'var(--red)':'var(--navy)'}">${openTasks.length}</div>
-        <div class="akte-kpi-sub">${overdueTasks.length?`⚠ ${overdueTasks.length} überfällig`:'Alles im Plan'}</div>
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#D97706;border-radius:10px 10px 0 0"></div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:6px">Offene Aufgaben</div>
+        <div style="font-size:22px;font-weight:700;line-height:1;color:${overdueTasks.length?'#DC2626':'#0D1B2A'}">${openTasks.length}</div>
+        <div style="font-size:11px;color:#8A9AB0;margin-top:4px">${overdueTasks.length?'⚠ '+overdueTasks.length+' überfällig':'Alles im Plan'}</div>
       </div>
-      <div class="akte-kpi" style="--kpi-color:var(--purple)">
-        <div class="akte-kpi-label">Pipeline (gewichtet)</div>
-        <div class="akte-kpi-value" style="font-size:16px">${pipelineVal>0?'€'+Math.round(pipelineVal).toLocaleString('de-DE'):'—'}</div>
-        <div class="akte-kpi-sub">${deals.filter(d=>!['won','lost'].includes(d.stage)).length} offene Deal${deals.filter(d=>!['won','lost'].includes(d.stage)).length!==1?'s':''}</div>
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#7C3AED;border-radius:10px 10px 0 0"></div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:6px">Pipeline (gewichtet)</div>
+        <div style="font-size:16px;font-weight:700;color:#0D1B2A;line-height:1">${pipelineVal>0?'€'+Math.round(pipelineVal).toLocaleString('de-DE'):'—'}</div>
+        <div style="font-size:11px;color:#8A9AB0;margin-top:4px">${deals.filter(d=>!['won','lost'].includes(d.stage)).length} offene Deal${deals.filter(d=>!['won','lost'].includes(d.stage)).length!==1?'s':''}</div>
       </div>
-      <div class="akte-kpi" style="--kpi-color:var(--green)">
-        <div class="akte-kpi-label">Gewonnen</div>
-        <div class="akte-kpi-value" style="font-size:16px;color:var(--green)">${wonVal>0?'€'+Math.round(wonVal).toLocaleString('de-DE'):'—'}</div>
-        <div class="akte-kpi-sub">${deals.filter(d=>d.stage==='won').length} Abschluss${deals.filter(d=>d.stage==='won').length!==1?'e':''}</div>
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#16A34A;border-radius:10px 10px 0 0"></div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:6px">Gewonnen</div>
+        <div style="font-size:16px;font-weight:700;color:#16A34A;line-height:1">${wonVal>0?'€'+Math.round(wonVal).toLocaleString('de-DE'):'—'}</div>
+        <div style="font-size:11px;color:#8A9AB0;margin-top:4px">${deals.filter(d=>d.stage==='won').length} Abschluss${deals.filter(d=>d.stage==='won').length!==1?'e':''}</div>
       </div>
-      <div class="akte-kpi" style="--kpi-color:var(--text3)">
-        <div class="akte-kpi-label">Mitarbeiter / Umsatz</div>
-        <div class="akte-kpi-value" style="font-size:15px">${esc(c.employees||'—')}</div>
-        <div class="akte-kpi-sub">${esc(c.revenue||'Umsatz unbekannt')}</div>
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#8A9AB0;border-radius:10px 10px 0 0"></div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:6px">Mitarbeiter / Umsatz</div>
+        <div style="font-size:15px;font-weight:700;color:#0D1B2A;line-height:1">${esc(c.employees||'—')}</div>
+        <div style="font-size:11px;color:#8A9AB0;margin-top:4px">${esc(c.revenue||'Umsatz unbekannt')}</div>
       </div>
     </div>
 
     <!-- ── TABS ── -->
-    <div class="akte-tabs">
-      <div class="akte-tab ${akteActiveTab==='uebersicht'?'active':''}" onclick="akteTab('uebersicht')">
-        Übersicht
-      </div>
-      <div class="akte-tab ${akteActiveTab==='aktivitaeten'?'active':''}" onclick="akteTab('aktivitaeten')">
-        Aktivitäten <span class="akte-tab-badge">${activities.length}</span>
-      </div>
-      <div class="akte-tab ${akteActiveTab==='aufgaben'?'active':''}" onclick="akteTab('aufgaben')">
-        Aufgaben <span class="akte-tab-badge${overdueTasks.length?' red':''}">${tasks.length}</span>
-      </div>
-      <div class="akte-tab ${akteActiveTab==='pipeline'?'active':''}" onclick="akteTab('pipeline')">
-        Pipeline / Deals <span class="akte-tab-badge">${deals.length}</span>
-      </div>
-      <div class="akte-tab ${akteActiveTab==='info'?'active':''}" onclick="akteTab('info')">
-        Stammdaten
-      </div>
+    <div style="display:flex;border-bottom:2px solid #DDE3EA;margin-bottom:20px;gap:0">
+      ${['uebersicht','aktivitaeten','aufgaben','pipeline','info'].map((tab,i) => {
+        const labels = ['Übersicht','Aktivitäten','Aufgaben','Pipeline / Deals','Stammdaten'];
+        const counts = [null, activities.length, tasks.length, deals.length, null];
+        const isActive = akteActiveTab === tab;
+        const isOverdueTab = tab === 'aufgaben' && overdueTasks.length > 0;
+        const badgeColor = isOverdueTab ? '#DC2626' : '#1565C0';
+        const badgeBg    = isOverdueTab ? '#FEE2E2' : '#E3F0FF';
+        return `<div onclick="akteTab('${tab}')" style="padding:10px 20px;font-size:13px;font-weight:${isActive?'600':'500'};color:${isActive?'#1565C0':'#8A9AB0'};cursor:pointer;border-bottom:${isActive?'2px solid #1565C0':'2px solid transparent'};margin-bottom:-2px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap"
+          onmouseover="this.style.color='#1565C0'" onmouseout="this.style.color='${isActive?'#1565C0':'#8A9AB0'}'">
+          ${labels[i]}
+          ${counts[i]!==null?`<span style="background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px">${counts[i]}</span>`:''}
+        </div>`;
+      }).join('')}
     </div>
 
     <!-- ── TAB: ÜBERSICHT ── -->
-    <div class="akte-tab-content ${akteActiveTab==='uebersicht'?'active':''}" id="akte-tab-uebersicht">
-      <div class="akte-grid">
+    <div style="display:${akteActiveTab==='uebersicht'?'block':'none'}" id="akte-tab-uebersicht">
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
         <div>
           <!-- Letzte Aktivitäten -->
           <div class="card" style="margin-bottom:16px">
@@ -6737,7 +6764,7 @@ function renderAkte() {
               <div class="card-title">Kurzprofil</div>
               <button class="btn btn-sm btn-ghost no-print" onclick="openContactModal('${c.id}')">✏️</button>
             </div>
-            <div class="akte-field-grid">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
               ${akteField('Branche', c.industry)}
               ${akteField('Mitarbeiter', c.employees)}
               ${akteField('Jahresumsatz', c.revenue)}
@@ -6765,7 +6792,7 @@ function renderAkte() {
     </div>
 
     <!-- ── TAB: AKTIVITÄTEN ── -->
-    <div class="akte-tab-content ${akteActiveTab==='aktivitaeten'?'active':''}" id="akte-tab-aktivitaeten">
+    <div style="display:${akteActiveTab==='aktivitaeten'?'block':'none'}" id="akte-tab-aktivitaeten">
       <div class="card">
         <div class="card-header">
           <div class="card-title">Alle Aktivitäten (${activities.length})</div>
@@ -6779,7 +6806,7 @@ function renderAkte() {
     </div>
 
     <!-- ── TAB: AUFGABEN ── -->
-    <div class="akte-tab-content ${akteActiveTab==='aufgaben'?'active':''}" id="akte-tab-aufgaben">
+    <div style="display:${akteActiveTab==='aufgaben'?'block':'none'}" id="akte-tab-aufgaben">
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
           <div class="card-title">Offene Aufgaben (${openTasks.length})</div>
@@ -6801,7 +6828,7 @@ function renderAkte() {
     </div>
 
     <!-- ── TAB: PIPELINE ── -->
-    <div class="akte-tab-content ${akteActiveTab==='pipeline'?'active':''}" id="akte-tab-pipeline">
+    <div style="display:${akteActiveTab==='pipeline'?'block':'none'}" id="akte-tab-pipeline">
       ${deals.length ? `
       <div class="card">
         <div class="card-header">
@@ -6819,12 +6846,12 @@ function renderAkte() {
     </div>
 
     <!-- ── TAB: STAMMDATEN ── -->
-    <div class="akte-tab-content ${akteActiveTab==='info'?'active':''}" id="akte-tab-info">
-      <div class="akte-grid">
+    <div style="display:${akteActiveTab==='info'?'block':'none'}" id="akte-tab-info">
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
         <div>
           <div class="card" style="margin-bottom:16px">
             <div class="card-header"><div class="card-title">Unternehmen</div></div>
-            <div class="akte-field-grid">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
               ${akteField('Firmenname', c.company)}
               ${akteField('Branche', c.industry)}
               ${akteField('Mitarbeiteranzahl', c.employees)}
@@ -6837,7 +6864,7 @@ function renderAkte() {
           </div>
           <div class="card">
             <div class="card-header"><div class="card-title">Ansprechpartner</div></div>
-            <div class="akte-field-grid">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
               ${akteField('Name', [c.firstname,c.lastname].filter(Boolean).join(' '))}
               ${akteField('Position', c.position)}
               ${akteField('Abteilung', c.department)}
@@ -6851,7 +6878,7 @@ function renderAkte() {
         <div>
           <div class="card" style="margin-bottom:14px">
             <div class="card-header"><div class="card-title">Vertriebsdaten</div></div>
-            <div class="akte-field-grid">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
               ${akteField('Status', c.status)}
               ${akteField('Priorität', pLabels[c.priority]||c.priority)}
               ${akteField('Akt. Dienstleister', c.currentProvider)}
@@ -6862,7 +6889,7 @@ function renderAkte() {
           </div>
           <div class="card" style="margin-bottom:14px">
             <div class="card-header"><div class="card-title">Lead-Informationen</div><button class="btn btn-sm btn-ghost no-print" onclick="openContactModal('${c.id}')">✏️</button></div>
-            <div class="akte-field-grid">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
               ${akteField('Leadgrund', c.leadReason)}
               ${akteField('Lead-Datum', c.leadDate)}
             </div>
@@ -6889,10 +6916,11 @@ function akteTab(tab) {
 }
 
 function akteField(label, val) {
-  return `<div class="akte-field">
-    <div class="akte-field-label">${label}</div>
-    <div class="akte-field-value ${!val?'empty':''}">${val ? esc(String(val)) : '—'}</div>
-  </div>`;
+  return '<div style="padding:11px 16px;border-bottom:1px solid #DDE3EA">'
+    + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:3px">' + esc(label) + '</div>'
+    + '<div style="font-size:13px;color:' + (val ? '#0D1B2A' : '#8A9AB0') + ';font-weight:' + (val ? '500' : '400') + ';font-style:' + (val ? 'normal' : 'italic') + '">'
+    + (val ? esc(String(val)) : '\u2014')
+    + '</div></div>';
 }
 
 function akteActivityHTML(a) {
