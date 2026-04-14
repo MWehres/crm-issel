@@ -1619,7 +1619,7 @@ textarea { resize: vertical; min-height: 80px; }
           <option value="mail">📩 Mail senden</option>
           <option value="noanswer">⚪ Nicht erreicht</option>
           <option value="rejected">🔴 Abgelehnt</option>
-          <option value="">— Kein Ergebnis</option>
+          <option value="_none">— Kein Ergebnis</option>
         </select>
         <select class="filter-select" id="contact-industry-filter" onchange="filterContacts()">
           <option value="">Alle Branchen</option>
@@ -3837,9 +3837,9 @@ function getFilteredContacts() {
     const sm  = !sf  || c.status   === sf;
     const im  = !ind || c.industry === ind;
     // cr === undefined/null → kein Filter; cr === '' → zeige nur ohne Ergebnis; cr === value → zeige matching
-    const crm = cr === undefined || cr === null
+    const crm = cr === undefined || cr === null || cr === ''
       ? true
-      : cr === '' ? !c.contactResult : c.contactResult === cr;
+      : cr === '_none' ? !c.contactResult : c.contactResult === cr;
     return match && sm && im && crm;
   });
 }
@@ -4456,14 +4456,174 @@ function updateTaskBadge() {
 function renderReports() {
   document.getElementById('report-date').textContent = new Date().toLocaleDateString('de-DE', {day:'2-digit',month:'long',year:'numeric'});
   const openDeals = DB.deals.filter(d => !['won','lost'].includes(d.stage));
-  const wonDeals = DB.deals.filter(d => d.stage === 'won');
+  const wonDeals  = DB.deals.filter(d => d.stage === 'won');
   const lostDeals = DB.deals.filter(d => d.stage === 'lost');
-  const totalPipeline = openDeals.reduce((s,d) => s + d.value, 0);
+  const totalPipeline    = openDeals.reduce((s,d) => s + d.value, 0);
   const weightedPipeline = openDeals.reduce((s,d) => s + d.value*(d.probability/100), 0);
-  const wonVal = wonDeals.reduce((s,d) => s + d.value, 0);
+  const wonVal       = wonDeals.reduce((s,d) => s + d.value, 0);
   const overdueTasks = DB.tasks.filter(t => !t.done && t.due && t.due < fmtDate(0));
 
+  // ── ZEITRAUM ──────────────────────────────────────────────
+  const reportPeriod = window._reportPeriod || 7; // Tage
+  const now      = new Date();
+  const periodAgo    = new Date(now - reportPeriod * 24 * 60 * 60 * 1000);
+  const periodAgoStr = periodAgo.toISOString().slice(0,10);
+  const periodAgoISO = periodAgo.toISOString();
+
+  // Aktivitäten im Zeitraum – vergleiche BEIDE Felder (date UND created)
+  const periodActivities = DB.activities.filter(a => {
+    const d = a.date || (a.created ? a.created.slice(0,10) : '');
+    const c = a.created || '';
+    return d >= periodAgoStr || c >= periodAgoISO;
+  });
+  const periodCalls   = periodActivities.filter(a => a.type === 'call');
+  const periodEmails  = periodActivities.filter(a => a.type === 'email');
+  const periodVisits  = periodActivities.filter(a => a.type === 'visit');
+
+  // Eindeutige Kontakte die im Zeitraum kontaktiert wurden
+  const contactedInPeriod = new Set(periodActivities.map(a => a.contactId).filter(Boolean));
+
+  // ── GESPRÄCHS-KATEGORISIERUNG (Leitfaden-Pfade) ──────────
+  //
+  // 1. NICHT ERREICHT: physisch niemanden ans Telefon bekommen
+  const NICHT_ERREICHT = /kein\s+erreichen|nicht\s+erreicht|keine\s+antwort|mailbox|nummer\s+nicht|nicht\s+verfügbar|keine\s+alternative|automatisch|kein\s+abnehmen/i;
+
+  // 2. GATEKEEPER ABGEBLOCKT: Sekretariat hat nicht durchgestellt
+  const GATEKEEPER_NEG = /gatekeeper\s+blockiert|gk_blocked|abgewimmelt/i;
+
+  // 3. ENTSCHEIDER ABGELEHNT: Entscheider direkt hat nein gesagt
+  const ENTSCHEIDER_NEG = /kein\s+interesse|kein\s+bedarf|ablge?lehnt|hard.no|ext\.\s*dl.*zufrieden/i;
+
+  // 4. ENTSCHEIDER POSITIV: Gespräch mit Ergebnis
+  const ENTSCHEIDER_POS = /leitfaden.gespräch|follow.up\s+vereinbart|interesse|termin\s+vereinbart|angebot|bedarfsanalyse|mail.*verschickt|warten\s+auf/i;
+
+  const classifyCall = (a) => {
+    const s = (a.subject || '').toLowerCase();
+    const c = DB.contacts.find(x => x.id === a.contactId);
+    const result = c?.contactResult || '';
+    // Kontakt-Ergebnis hat Vorrang wenn gesetzt
+    if (result === 'noanswer')    return 'noanswer';
+    if (result === 'rejected')    return 'rejected';
+    if (['interested','appointment','callback','mail'].includes(result)) return 'positive';
+    // Sonst: Betreff auswerten
+    if (NICHT_ERREICHT.test(s))   return 'noanswer';
+    if (GATEKEEPER_NEG.test(s))   return 'gk_blocked';
+    if (ENTSCHEIDER_NEG.test(s))  return 'dm_rejected';
+    if (ENTSCHEIDER_POS.test(s))  return 'positive';
+    // Fallback: Gesprächsdauer ≥ 5 Min = wahrscheinlich Entscheider
+    if ((a.duration || 0) >= 5)   return 'positive';
+    return 'noanswer';
+  };
+
+  const callsPositive   = periodCalls.filter(a => classifyCall(a) === 'positive');
+  const callsGkBlocked  = periodCalls.filter(a => classifyCall(a) === 'gk_blocked');
+  const callsDmRejected = periodCalls.filter(a => classifyCall(a) === 'dm_rejected');
+  const callsNotReached = periodCalls.filter(a => classifyCall(a) === 'noanswer');
+  const callsReached    = [...callsPositive, ...callsDmRejected]; // alle wo Entscheider dran war
+
+  const uniqueReached    = new Set(callsReached.map(a => a.contactId).filter(Boolean));
+  const uniquePositive   = new Set(callsPositive.map(a => a.contactId).filter(Boolean));
+  const uniqueGkBlocked  = new Set(callsGkBlocked.map(a => a.contactId).filter(Boolean));
+  const uniqueDmRejected = new Set(callsDmRejected.map(a => a.contactId).filter(Boolean));
+  const uniqueNotReached = new Set(callsNotReached.map(a => a.contactId).filter(Boolean));
+
+  // Follow-ups
+  const periodTasks = DB.tasks.filter(t => t.done && (t.created || '') >= periodAgoISO);
+  const followUps   = DB.tasks.filter(t => !t.done && ['Nachfassen','Anruf'].includes(t.category));
+
+  // Conversion-Status
+  const newAppointments = DB.contacts.filter(c => {
+    if (c.contactResult !== 'appointment') return false;
+    return DB.activities.some(a => {
+      const d = a.date || (a.created ? a.created.slice(0,10) : '');
+      const cr = a.created || '';
+      return a.contactId === c.id && (d >= periodAgoStr || cr >= periodAgoISO);
+    });
+  });
+  const newProposals = DB.deals.filter(d => d.stage === 'proposal' && (d.created||'') >= periodAgoISO);
+  const newWon       = DB.deals.filter(d => d.stage === 'won' && (d.created||'') >= periodAgoISO);
+
+  // Ergebnis-Verteilung
+  const resultCounts = {};
+  periodActivities.forEach(a => {
+    const c = DB.contacts.find(x => x.id === a.contactId);
+    if (c && c.contactResult) {
+      resultCounts[c.contactResult] = (resultCounts[c.contactResult]||0)+1;
+    }
+  });
+
+  // KW berechnen
+  const startOfYear = new Date(now.getFullYear(),0,1);
+  const kw = Math.ceil(((now - startOfYear)/86400000 + startOfYear.getDay()+1)/7);
+
+  const periodLabel = {7:`KW ${kw} · letzte 7 Tage`, 14:'Letzte 14 Tage', 30:'Letzte 30 Tage', 90:'Letzte 3 Monate'}[reportPeriod] || `Letzte ${reportPeriod} Tage`;
+  const periodSubLabel = `${periodAgo.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})} – ${now.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+
   document.getElementById('report-content').innerHTML = `
+
+    <!-- ══ ZEITRAUM-AUSWAHL ══ -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center">
+      <span style="font-size:12px;font-weight:600;color:#5A6B7B">Zeitraum:</span>
+      ${[7,14,30,90].map(d => `<button onclick="window._reportPeriod=${d};renderReports()" style="padding:5px 14px;border-radius:20px;border:1.5px solid ${(window._reportPeriod||7)===d?'#1565C0':'#DDE3EA'};background:${(window._reportPeriod||7)===d?'#E3F0FF':'#fff'};color:${(window._reportPeriod||7)===d?'#1565C0':'#5A6B7B'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${{7:'7 Tage',14:'14 Tage',30:'30 Tage',90:'3 Monate'}[d]}</button>`).join('')}
+    </div>
+
+    <!-- ══ STATUS-QUO REPORT ══ -->
+    <div style="border:2px solid #1565C0;border-radius:12px;padding:24px 28px;margin-bottom:28px;background:#F8FBFF">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h2 style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:800;color:#0D1B2A;margin:0">📊 Status-Quo – Vertriebsaktivität</h2>
+          <div style="font-size:13px;color:#5A6B7B;margin-top:4px">Berichtszeitraum: ${periodLabel} · ${periodSubLabel}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#8A9AB0">Issel Security GmbH<br>Erstellt: ${new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      </div>
+
+      <!-- KPI-Zeile 1: Anruf-Trichter -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px">
+        ${[
+          {label:'Anrufe gesamt',     val:periodCalls.length,       sub:periodEmails.length+' Mails · '+periodVisits.length+' Besuche', color:'#1565C0'},
+          {label:'Entscheider erreicht', val:uniqueReached.size,    sub:callsReached.length+' Gespräche geführt',                      color:'#16A34A'},
+          {label:'Positiv / Interesse',  val:uniquePositive.size,   sub:'Termin · Interesse · Mail',                                   color:'#7C3AED'},
+          {label:'Gatekeeper abgeblockt',val:uniqueGkBlocked.size,  sub:'kein Durchkommen',                                            color:'#D97706'},
+          {label:'Nicht erreicht',       val:uniqueNotReached.size, sub:'Mailbox · kein Abnehmen',                                     color:'#8A9AB0'},
+        ].map(k=>`
+          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:8px">${k.label}</div>
+            <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
+            <div style="font-size:10px;color:#8A9AB0;margin-top:4px">${k.sub}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- KPI-Zeile 2: Aktiv + Follow-up + Conversion -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        ${[
+          {label:'Aktiv kontaktierte Leads',     val:contactedInPeriod.size,                                                                         sub:'eindeutige Unternehmen',    color:'#7C3AED'},
+          {label:'Follow-ups / Recalls offen',   val:followUps.length,                                                                               sub:periodTasks.length+' erledigt', color:'#D97706'},
+          {label:'Positiv abgeschlossen',        val:uniquePositive.size,                                                                             sub:'Termin · Interesse · Mail', color:'#16A34A'},
+          {label:'Conversion-Rate',              val:contactedInPeriod.size>0?Math.round(uniquePositive.size/contactedInPeriod.size*100)+'%':'—',     sub:'(Positiv ÷ Kontaktiert)',   color:'#1565C0'},
+        ].map(k=>`
+          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:8px">${k.label}</div>
+            <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
+            <div style="font-size:10px;color:#8A9AB0;margin-top:4px">${k.sub}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Ergebnis-Verteilung -->
+      ${periodActivities.length > 0 ? `
+      <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:16px 20px">
+        <div style="font-size:12px;font-weight:700;color:#0D1B2A;margin-bottom:12px">Gesprächsergebnisse im Zeitraum</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          ${Object.entries({interested:'Interesse',appointment:'Termin',callback:'Rückruf',mail:'Mail gewünscht',noanswer:'Nicht erreicht',rejected:'Abgelehnt'})
+            .filter(([key]) => resultCounts[key])
+            .map(([key,label]) => {
+              const colors = {interested:'#7C3AED,#EDE9FE',appointment:'#16A34A,#DCFCE7',callback:'#1565C0,#E3F0FF',mail:'#D97706,#FEF3C7',noanswer:'#64748B,#F1F5F9',rejected:'#DC2626,#FEE2E2'};
+              const [c,bg] = (colors[key]||'#8A9AB0,#F8FAFC').split(',');
+              return `<div style="background:${bg};border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:${c}">${label}: <strong>${resultCounts[key]}</strong></div>`;
+            }).join('')}
+        </div>
+      </div>` : '<div style="text-align:center;padding:12px;color:#8A9AB0;font-size:13px">Keine Aktivitäten im gewählten Zeitraum erfasst.</div>'}
+    </div>
+
     <div class="report-section">
       <h3>📊 Executive Summary</h3>
       <div class="kpi-grid">
@@ -4535,7 +4695,7 @@ function renderReports() {
     </div>
 
     <div style="text-align:center;font-size:10px;color:var(--text3);margin-top:40px;padding-top:16px;border-top:1px solid var(--border)">
-      ProSales CRM · Generiert am ${new Date().toLocaleString('de-DE')} · Vertraulich
+      Issel Security GmbH · ProSales CRM · Generiert am ${new Date().toLocaleString('de-DE')} · Vertraulich
     </div>
   `;
 }
