@@ -4323,6 +4323,7 @@ function getFilteredTasks() {
   const af = document.getElementById('task-assignee-filter')?.value || '';
   const today = fmtDate(0);
   return DB.tasks.filter(t => {
+    if (t.isWiedervorlage) return false; // Wiedervorlagen gehören nicht in Aufgaben
     const match = !q || t.title.toLowerCase().includes(q);
     const cm = !cf || t.contactId === cf;
     const am = !af || t.assignedTo === af;
@@ -4439,17 +4440,6 @@ function toggleTask(id) {
   updateTaskBadge();
 }
 
-function updateTaskBadge() {
-  const overdue = DB.tasks.filter(t => !t.done && t.due && t.due < fmtDate(0)).length;
-  const open    = DB.tasks.filter(t => !t.done).length;
-  const badge   = document.getElementById('task-badge');
-  const mobDot  = document.getElementById('task-mob-badge');
-  if (overdue > 0) { badge.textContent = overdue; badge.style.display = ''; }
-  else if (open > 0) { badge.textContent = open; badge.style.display = ''; badge.style.background = 'var(--orange)'; }
-  else { badge.style.display = 'none'; }
-  if (mobDot) mobDot.style.display = open > 0 ? '' : 'none';
-}
-
 // ══════════════════════════════════════════════════════════
 // REPORTS
 // ══════════════════════════════════════════════════════════
@@ -4470,11 +4460,15 @@ function renderReports() {
   const periodAgoStr = periodAgo.toISOString().slice(0,10);
   const periodAgoISO = periodAgo.toISOString();
 
+  // User-Filter anwenden
+  const reportUser = window._reportUser || '';
+  const filterByUser = (a) => !reportUser || a.userId === reportUser;
+
   // Aktivitäten im Zeitraum – vergleiche BEIDE Felder (date UND created)
   const periodActivities = DB.activities.filter(a => {
     const d = a.date || (a.created ? a.created.slice(0,10) : '');
     const c = a.created || '';
-    return d >= periodAgoStr || c >= periodAgoISO;
+    return (d >= periodAgoStr || c >= periodAgoISO) && filterByUser(a);
   });
   const periodCalls   = periodActivities.filter(a => a.type === 'call');
   const periodEmails  = periodActivities.filter(a => a.type === 'email');
@@ -4494,8 +4488,8 @@ function renderReports() {
   // 3. ENTSCHEIDER ABGELEHNT: Entscheider direkt hat nein gesagt
   const ENTSCHEIDER_NEG = /kein\s+interesse|kein\s+bedarf|ablge?lehnt|hard.no|ext\.\s*dl.*zufrieden/i;
 
-  // 4. ENTSCHEIDER POSITIV: Gespräch mit Ergebnis
-  const ENTSCHEIDER_POS = /leitfaden.gespräch|follow.up\s+vereinbart|interesse|termin\s+vereinbart|angebot|bedarfsanalyse|mail.*verschickt|warten\s+auf/i;
+  // 4. ENTSCHEIDER POSITIV: echtes Gespräch mit positivem Ergebnis
+  const ENTSCHEIDER_POS = /leitfaden.gespräch|follow.up\s+vereinbart|interesse\b|termin\s+vereinbart|angebot|bedarfsanalyse/i;
 
   const classifyCall = (a) => {
     const s = (a.subject || '').toLowerCase();
@@ -4504,7 +4498,8 @@ function renderReports() {
     // Kontakt-Ergebnis hat Vorrang wenn gesetzt
     if (result === 'noanswer')    return 'noanswer';
     if (result === 'rejected')    return 'rejected';
-    if (['interested','appointment','callback','mail'].includes(result)) return 'positive';
+    if (result === 'mail')        return 'noanswer'; // Mail = Kontaktversuch, kein positives Ergebnis
+    if (['interested','appointment','callback'].includes(result)) return 'positive';
     // Sonst: Betreff auswerten
     if (NICHT_ERREICHT.test(s))   return 'noanswer';
     if (GATEKEEPER_NEG.test(s))   return 'gk_blocked';
@@ -4519,7 +4514,7 @@ function renderReports() {
   const callsGkBlocked  = periodCalls.filter(a => classifyCall(a) === 'gk_blocked');
   const callsDmRejected = periodCalls.filter(a => classifyCall(a) === 'dm_rejected');
   const callsNotReached = periodCalls.filter(a => classifyCall(a) === 'noanswer');
-  const callsReached    = [...callsPositive, ...callsDmRejected]; // alle wo Entscheider dran war
+  const callsReached    = [...callsPositive, ...callsDmRejected];
 
   const uniqueReached    = new Set(callsReached.map(a => a.contactId).filter(Boolean));
   const uniquePositive   = new Set(callsPositive.map(a => a.contactId).filter(Boolean));
@@ -4527,9 +4522,21 @@ function renderReports() {
   const uniqueDmRejected = new Set(callsDmRejected.map(a => a.contactId).filter(Boolean));
   const uniqueNotReached = new Set(callsNotReached.map(a => a.contactId).filter(Boolean));
 
+  // Mail versendet = separat (kein Anruf-Ergebnis, aber Kontaktversuch)
+  const mailsSent       = periodActivities.filter(a => a.type === 'email');
+  const uniqueMailsSent = new Set(mailsSent.map(a => a.contactId).filter(Boolean));
+
+  // Für Conversion: nur echtes Interesse (NICHT Mail)
+  const uniqueRealPositive = new Set(
+    DB.contacts.filter(c =>
+      ['interested','appointment','callback'].includes(c.contactResult) &&
+      periodActivities.some(a => a.contactId === c.id)
+    ).map(c => c.id)
+  );
+
   // Follow-ups
-  const periodTasks = DB.tasks.filter(t => t.done && (t.created || '') >= periodAgoISO);
-  const followUps   = DB.tasks.filter(t => !t.done && ['Nachfassen','Anruf'].includes(t.category));
+  const periodTasks = DB.tasks.filter(t => t.done && (t.created || '') >= periodAgoISO && (!reportUser || t.assignedTo === reportUser));
+  const followUps   = DB.tasks.filter(t => !t.done && ['Nachfassen','Anruf'].includes(t.category) && (!reportUser || t.assignedTo === reportUser));
 
   // Conversion-Status
   const newAppointments = DB.contacts.filter(c => {
@@ -4561,10 +4568,19 @@ function renderReports() {
 
   document.getElementById('report-content').innerHTML = `
 
-    <!-- ══ ZEITRAUM-AUSWAHL ══ -->
-    <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center">
-      <span style="font-size:12px;font-weight:600;color:#5A6B7B">Zeitraum:</span>
-      ${[7,14,30,90].map(d => `<button onclick="window._reportPeriod=${d};renderReports()" style="padding:5px 14px;border-radius:20px;border:1.5px solid ${(window._reportPeriod||7)===d?'#1565C0':'#DDE3EA'};background:${(window._reportPeriod||7)===d?'#E3F0FF':'#fff'};color:${(window._reportPeriod||7)===d?'#1565C0':'#5A6B7B'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${{7:'7 Tage',14:'14 Tage',30:'30 Tage',90:'3 Monate'}[d]}</button>`).join('')}
+    <!-- ══ ZEITRAUM & BEARBEITER-AUSWAHL ══ -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:#5A6B7B">Zeitraum:</span>
+        ${[7,14,30,90].map(d => `<button onclick="window._reportPeriod=${d};renderReports()" style="padding:5px 14px;border-radius:20px;border:1.5px solid ${(window._reportPeriod||7)===d?'#1565C0':'#DDE3EA'};background:${(window._reportPeriod||7)===d?'#E3F0FF':'#fff'};color:${(window._reportPeriod||7)===d?'#1565C0':'#5A6B7B'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${{7:'7 Tage',14:'14 Tage',30:'30 Tage',90:'3 Monate'}[d]}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:16px">
+        <span style="font-size:12px;font-weight:600;color:#5A6B7B">Bearbeiter:</span>
+        <select onchange="window._reportUser=this.value;renderReports()" style="padding:5px 12px;border-radius:20px;border:1.5px solid #DDE3EA;background:#fff;color:#5A6B7B;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;outline:none">
+          <option value="">Alle Bearbeiter</option>
+          ${DB.users.filter(u=>u.active!==false).map(u=>`<option value="${u.id}"${(window._reportUser||'')=== u.id?'selected':''}>${esc(u.name)}</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     <!-- ══ STATUS-QUO REPORT ══ -->
@@ -4578,17 +4594,18 @@ function renderReports() {
       </div>
 
       <!-- KPI-Zeile 1: Anruf-Trichter -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
         ${[
-          {label:'Anrufe gesamt',     val:periodCalls.length,       sub:periodEmails.length+' Mails · '+periodVisits.length+' Besuche', color:'#1565C0'},
-          {label:'Entscheider erreicht', val:uniqueReached.size,    sub:callsReached.length+' Gespräche geführt',                      color:'#16A34A'},
-          {label:'Positiv / Interesse',  val:uniquePositive.size,   sub:'Termin · Interesse · Mail',                                   color:'#7C3AED'},
-          {label:'Gatekeeper abgeblockt',val:uniqueGkBlocked.size,  sub:'kein Durchkommen',                                            color:'#D97706'},
-          {label:'Nicht erreicht',       val:uniqueNotReached.size, sub:'Mailbox · kein Abnehmen',                                     color:'#8A9AB0'},
+          {label:'Anrufe gesamt',          val:periodCalls.length,        sub:periodEmails.length+' Mails · '+periodVisits.length+' Besuche', color:'#1565C0'},
+          {label:'Entscheider erreicht',   val:uniqueReached.size,        sub:callsReached.length+' Gespräche',                              color:'#16A34A'},
+          {label:'Interesse / Termin',     val:uniqueRealPositive.size,   sub:'Termin · Interesse · Rückruf',                                color:'#7C3AED'},
+          {label:'Mail versendet',         val:uniqueMailsSent.size,      sub:'Kontaktversuch, kein Ergebnis',                               color:'#0891B2'},
+          {label:'Gatekeeper abgeblockt',  val:uniqueGkBlocked.size,      sub:'kein Durchkommen',                                            color:'#D97706'},
+          {label:'Nicht erreicht',         val:uniqueNotReached.size,     sub:'Mailbox · kein Abnehmen',                                     color:'#8A9AB0'},
         ].map(k=>`
-          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:8px">${k.label}</div>
-            <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
+          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">${k.label}</div>
+            <div style="font-size:26px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
             <div style="font-size:10px;color:#8A9AB0;margin-top:4px">${k.sub}</div>
           </div>`).join('')}
       </div>
@@ -4598,8 +4615,8 @@ function renderReports() {
         ${[
           {label:'Aktiv kontaktierte Leads',     val:contactedInPeriod.size,                                                                         sub:'eindeutige Unternehmen',    color:'#7C3AED'},
           {label:'Follow-ups / Recalls offen',   val:followUps.length,                                                                               sub:periodTasks.length+' erledigt', color:'#D97706'},
-          {label:'Positiv abgeschlossen',        val:uniquePositive.size,                                                                             sub:'Termin · Interesse · Mail', color:'#16A34A'},
-          {label:'Conversion-Rate',              val:contactedInPeriod.size>0?Math.round(uniquePositive.size/contactedInPeriod.size*100)+'%':'—',     sub:'(Positiv ÷ Kontaktiert)',   color:'#1565C0'},
+          {label:'Interesse / Termin',        val:uniqueRealPositive.size,                                                                              sub:'Termin · Interesse · Rückruf',  color:'#16A34A'},
+          {label:'Conversion-Rate',              val:contactedInPeriod.size>0?Math.round(uniqueRealPositive.size/contactedInPeriod.size*100)+'%':'—',     sub:'(Interesse ÷ Kontaktiert)',     color:'#1565C0'},
         ].map(k=>`
           <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
             <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:8px">${k.label}</div>
@@ -4624,8 +4641,40 @@ function renderReports() {
       </div>` : '<div style="text-align:center;padding:12px;color:#8A9AB0;font-size:13px">Keine Aktivitäten im gewählten Zeitraum erfasst.</div>'}
     </div>
 
-    <div class="report-section">
-      <h3>📊 Executive Summary</h3>
+    <!-- ══ WIEDERVORLAGEN ══ -->
+    <div class="report-section" style="margin-bottom:28px">
+      <h3>📅 Wiedervorlagen & offene Follow-ups</h3>
+      ${(() => {
+        const wvAll = DB.tasks.filter(t => !t.done && (t.isWiedervorlage || (t.category==='Nachfassen' && t.notes?.includes('Vertriebsleitfaden'))) && (!reportUser || t.assignedTo === reportUser));
+        const today = fmtDate(0);
+        const overdue = wvAll.filter(t => t.due && t.due < today).sort((a,b) => a.due > b.due ? 1 : -1);
+        const dueToday = wvAll.filter(t => t.due === today);
+        const upcoming = wvAll.filter(t => t.due > today).sort((a,b) => a.due > b.due ? 1 : -1);
+        const nodate   = wvAll.filter(t => !t.due);
+        if (!wvAll.length) return '<p style="color:var(--green);font-size:13px">✅ Keine offenen Wiedervorlagen</p>';
+        const renderWvRows = (tasks) => tasks.map(t => {
+          const c = DB.contacts.find(x => x.id === t.contactId);
+          const u = DB.users.find(x => x.id === t.assignedTo);
+          const isOvd = t.due && t.due < today;
+          return `<tr>
+            <td style="color:${isOvd?'#DC2626':'#0D1B2A'};font-weight:${isOvd?'600':'400'}">${isOvd?'⚠ ':''}${t.due ? formatDate(t.due) : '—'}</td>
+            <td><strong>${esc(t.title)}</strong></td>
+            <td>${esc(c ? c.company : '—')}</td>
+            <td>${esc(u ? u.name : '—')}</td>
+            <td><span class="badge badge-${({high:'red',medium:'orange',low:'green'}[t.priority])||'gray'}">${({high:'Hoch',medium:'Mittel',low:'Niedrig'}[t.priority])||''}</span></td>
+          </tr>`;
+        }).join('');
+        return `<table class="data-table" style="width:100%">
+          <thead><tr><th>Fällig</th><th>Aufgabe</th><th>Unternehmen</th><th>Bearbeiter</th><th>Priorität</th></tr></thead>
+          <tbody>
+            ${overdue.length ? `<tr><td colspan="5" style="background:#FEF2F2;font-size:11px;font-weight:700;color:#DC2626;padding:6px 16px;text-transform:uppercase;letter-spacing:.06em">Überfällig (${overdue.length})</td></tr>${renderWvRows(overdue)}` : ''}
+            ${dueToday.length ? `<tr><td colspan="5" style="background:#FEF3C7;font-size:11px;font-weight:700;color:#D97706;padding:6px 16px;text-transform:uppercase;letter-spacing:.06em">Heute fällig (${dueToday.length})</td></tr>${renderWvRows(dueToday)}` : ''}
+            ${upcoming.length ? `<tr><td colspan="5" style="background:#F0FDF4;font-size:11px;font-weight:700;color:#16A34A;padding:6px 16px;text-transform:uppercase;letter-spacing:.06em">Demnächst (${upcoming.length})</td></tr>${renderWvRows(upcoming)}` : ''}
+            ${nodate.length  ? `<tr><td colspan="5" style="background:#F8FAFC;font-size:11px;font-weight:700;color:#8A9AB0;padding:6px 16px;text-transform:uppercase;letter-spacing:.06em">Kein Datum (${nodate.length})</td></tr>${renderWvRows(nodate)}` : ''}
+          </tbody>
+        </table>`;
+      })()}
+    </div>
       <div class="kpi-grid">
         <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Kontakte gesamt</div><div class="kpi-value">${DB.contacts.length}</div><div class="kpi-sub">davon ${DB.contacts.filter(c=>c.status==='Kunde').length} aktive Kunden</div></div>
         <div class="kpi-card" style="--kpi-color:var(--purple)"><div class="kpi-label">Pipeline gesamt</div><div class="kpi-value">${fmtEur(totalPipeline)}</div><div class="kpi-sub">gewichtet: ${fmtEur(weightedPipeline)}</div></div>
@@ -6500,7 +6549,7 @@ function pbSaveToContact(isPositive) {
     }
   }
 
-  // Follow-up task – dem Bearbeiter zuweisen
+  // Follow-up task – dem Bearbeiter zuweisen, als Wiedervorlage markieren
   const followupText = document.getElementById('pb-followup-text')?.value?.trim();
   const followupDays = parseInt(document.getElementById('pb-followup-days')?.value) || 14;
   if (followupText) {
@@ -6514,6 +6563,7 @@ function pbSaveToContact(isPositive) {
       category: 'Nachfassen',
       notes: `Automatisch aus Vertriebsleitfaden erstellt. Ergebnis: ${isPositive ? 'Abschluss' : 'Kein Abschluss'}.`,
       done: false,
+      isWiedervorlage: true,   // ← Wiedervorlage, nicht Aufgabe
       created: new Date().toISOString()
     };
     DB.tasks.push(task);
@@ -6592,7 +6642,7 @@ function pbSaveTrigger(saveKey) {
         <textarea id="pb-save-details" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none;resize:vertical">${pbBuildNotes(false)}</textarea>
       </div>
       <div style="background:var(--bg);border-radius:7px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border)">
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:8px">Follow-up Aufgabe</label>
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:8px">📅 Wiedervorlage anlegen</label>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
           <input id="pb-followup-text" type="text" value="${meta.followupText}" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none">
           <input id="pb-followup-days" type="number" value="${meta.followupDays}" min="1" max="365" style="width:70px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none" title="Tage bis Fälligkeit">
@@ -7457,8 +7507,11 @@ function renderWiedervorlagen() {
   const in7days  = fmtDate(7);
   const in30days = fmtDate(30);
 
-  // Alle offenen Aufgaben mit Fälligkeitsdatum
-  const allTasks = DB.tasks.filter(t => !t.done);
+  // Alle offenen Aufgaben die Wiedervorlagen sind (isWiedervorlage=true ODER Kategorie Nachfassen/Anruf aus Leitfaden)
+  const allTasks = DB.tasks.filter(t => !t.done && (
+    t.isWiedervorlage ||
+    (t.category === 'Nachfassen' && t.notes && t.notes.includes('Vertriebsleitfaden'))
+  ));
 
   const overdue  = allTasks.filter(t => t.due && t.due < today).sort((a,b) => a.due > b.due ? 1 : -1);
   const todayT   = allTasks.filter(t => t.due === today);
@@ -7568,12 +7621,30 @@ function wvToggleTask(id) {
 }
 
 function wvUpdateBadge() {
-  const today  = fmtDate(0);
-  const urgent = DB.tasks.filter(t => !t.done && t.due && t.due <= today).length;
-  const badge  = document.getElementById('wv-badge');
+  const today    = fmtDate(0);
+  // Wiedervorlagen = isWiedervorlage OR Nachfassen vom Leitfaden
+  const wvTasks  = DB.tasks.filter(t => !t.done && (t.isWiedervorlage || (t.category==='Nachfassen' && t.notes?.includes('Vertriebsleitfaden'))));
+  const urgent   = wvTasks.filter(t => t.due && t.due <= today).length;
+  const badge    = document.getElementById('wv-badge');
   const mobBadge = document.getElementById('wv-mob-badge');
-  if (badge) { badge.textContent = urgent; badge.style.display = urgent > 0 ? '' : 'none'; }
+  if (badge)    { badge.textContent = urgent; badge.style.display = urgent > 0 ? '' : 'none'; }
   if (mobBadge) { mobBadge.textContent = urgent; mobBadge.style.display = urgent > 0 ? '' : 'none'; }
+}
+
+function updateTaskBadge() {
+  const today    = fmtDate(0);
+  // Nur echte Aufgaben (keine Wiedervorlagen)
+  const realTasks = DB.tasks.filter(t => !t.isWiedervorlage && !(t.category==='Nachfassen' && t.notes?.includes('Vertriebsleitfaden')));
+  const overdue  = realTasks.filter(t => !t.done && t.due && t.due < today).length;
+  const open     = realTasks.filter(t => !t.done).length;
+  const badge    = document.getElementById('task-badge');
+  const mobDot   = document.getElementById('task-mob-badge');
+  if (badge) {
+    if (overdue > 0) { badge.textContent = overdue; badge.style.display = ''; badge.style.background = 'var(--red)'; }
+    else if (open > 0) { badge.textContent = open; badge.style.display = ''; badge.style.background = 'var(--orange)'; }
+    else { badge.style.display = 'none'; }
+  }
+  if (mobDot) mobDot.style.display = open > 0 ? '' : 'none';
 }
 
 // ── Push-Benachrichtigungen ───────────────────────────────
