@@ -4497,9 +4497,8 @@ function renderReports() {
     const result = c?.contactResult || '';
     // Kontakt-Ergebnis hat Vorrang wenn gesetzt
     if (result === 'noanswer')    return 'noanswer';
-    if (result === 'rejected')    return 'rejected';
-    if (result === 'mail')        return 'noanswer'; // Mail = Kontaktversuch, kein positives Ergebnis
-    if (['interested','appointment','callback'].includes(result)) return 'positive';
+    if (result === 'rejected')    return 'dm_rejected'; // Entscheider war dran, hat abgelehnt
+    if (['interested','appointment','callback','mail'].includes(result)) return 'positive'; // mail = Kunde hat Mail gewünscht
     // Sonst: Betreff auswerten
     if (NICHT_ERREICHT.test(s))   return 'noanswer';
     if (GATEKEEPER_NEG.test(s))   return 'gk_blocked';
@@ -4522,14 +4521,14 @@ function renderReports() {
   const uniqueDmRejected = new Set(callsDmRejected.map(a => a.contactId).filter(Boolean));
   const uniqueNotReached = new Set(callsNotReached.map(a => a.contactId).filter(Boolean));
 
-  // Mail versendet = separat (kein Anruf-Ergebnis, aber Kontaktversuch)
-  const mailsSent       = periodActivities.filter(a => a.type === 'email');
+  // Mail versendet = Marcel hat proaktiv eine Mail geschickt (OHNE dass Kontakt eine angefordert hat)
+  const mailsSent       = periodActivities.filter(a => a.type === 'email' && DB.contacts.find(c => c.id === a.contactId)?.contactResult !== 'mail');
   const uniqueMailsSent = new Set(mailsSent.map(a => a.contactId).filter(Boolean));
 
-  // Für Conversion: nur echtes Interesse (NICHT Mail)
+  // Für Conversion: alle echten positiven Signale inkl. Mail-Wunsch
   const uniqueRealPositive = new Set(
     DB.contacts.filter(c =>
-      ['interested','appointment','callback'].includes(c.contactResult) &&
+      ['interested','appointment','callback','mail'].includes(c.contactResult) &&
       periodActivities.some(a => a.contactId === c.id)
     ).map(c => c.id)
   );
@@ -4596,10 +4595,10 @@ function renderReports() {
       <!-- KPI-Zeile 1: Anruf-Trichter -->
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
         ${[
-          {label:'Anrufe gesamt',          val:periodCalls.length,        sub:periodEmails.length+' Mails · '+periodVisits.length+' Besuche', color:'#1565C0'},
+          {label:'Anrufe gesamt',          val:periodCalls.length,        sub:contactedInPeriod.size+' Unternehmen · '+periodEmails.length+' Mails', color:'#1565C0'},
           {label:'Entscheider erreicht',   val:uniqueReached.size,        sub:callsReached.length+' Gespräche',                              color:'#16A34A'},
-          {label:'Interesse / Termin',     val:uniqueRealPositive.size,   sub:'Termin · Interesse · Rückruf',                                color:'#7C3AED'},
-          {label:'Mail versendet',         val:uniqueMailsSent.size,      sub:'Kontaktversuch, kein Ergebnis',                               color:'#0891B2'},
+          {label:'Interesse / Termin',     val:uniqueRealPositive.size,   sub:'Termin · Interesse · Rückruf · Mail gewünscht', color:'#7C3AED'},
+          {label:'Mail proaktiv gesendet',  val:uniqueMailsSent.size,      sub:'ohne Kontaktanfrage',                           color:'#0891B2'},
           {label:'Gatekeeper abgeblockt',  val:uniqueGkBlocked.size,      sub:'kein Durchkommen',                                            color:'#D97706'},
           {label:'Nicht erreicht',         val:uniqueNotReached.size,     sub:'Mailbox · kein Abnehmen',                                     color:'#8A9AB0'},
         ].map(k=>`
@@ -4613,9 +4612,9 @@ function renderReports() {
       <!-- KPI-Zeile 2: Aktiv + Follow-up + Conversion -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
         ${[
-          {label:'Aktiv kontaktierte Leads',     val:contactedInPeriod.size,                                                                         sub:'eindeutige Unternehmen',    color:'#7C3AED'},
+          {label:'Aktiv kontaktierte Leads', val:contactedInPeriod.size, sub:periodCalls.length+' Anrufe bei '+contactedInPeriod.size+' Unternehmen', color:'#7C3AED'},
           {label:'Follow-ups / Recalls offen',   val:followUps.length,                                                                               sub:periodTasks.length+' erledigt', color:'#D97706'},
-          {label:'Interesse / Termin',        val:uniqueRealPositive.size,                                                                              sub:'Termin · Interesse · Rückruf',  color:'#16A34A'},
+          {label:'Interesse / Termin',        val:uniqueRealPositive.size,                                                                              sub:'Termin · Interesse · Mail gewünscht',  color:'#16A34A'},
           {label:'Conversion-Rate',              val:contactedInPeriod.size>0?Math.round(uniqueRealPositive.size/contactedInPeriod.size*100)+'%':'—',     sub:'(Interesse ÷ Kontaktiert)',     color:'#1565C0'},
         ].map(k=>`
           <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
