@@ -4504,19 +4504,25 @@ function renderReports() {
   const ENTSCHEIDER_POS = /leitfaden.gespräch|follow.up\s+vereinbart|interesse\b|termin\s+vereinbart|angebot|bedarfsanalyse/i;
 
   const classifyCall = (a) => {
-    const s = (a.subject || '').toLowerCase();
+    const s = (a.subject || '');
     const c = DB.contacts.find(x => x.id === a.contactId);
     const result = c?.contactResult || '';
-    // Kontakt-Ergebnis hat Vorrang wenn gesetzt
-    if (result === 'noanswer')    return 'noanswer';
-    if (result === 'rejected')    return 'dm_rejected'; // Entscheider war dran, hat abgelehnt
-    if (['interested','appointment','callback','mail'].includes(result)) return 'positive'; // mail = Kunde hat Mail gewünscht
-    // Sonst: Betreff auswerten
+    if (result === 'noanswer') return 'noanswer';
+    if (result === 'rejected') return 'dm_rejected';
+    if (result === 'mail') {
+      // Prüfen ob Mail proaktiv war (kein Nummer gefunden)
+      // Wenn der Aktivitäts-Betreff auf "nicht erreicht" hindeutet → proaktiv, kein Interesse
+      if (NICHT_ERREICHT.test(s)) return 'noanswer';
+      // Wenn ALLE Call-Aktivitäten dieses Kontakts im Zeitraum "nicht erreicht" waren
+      const cCalls = periodCalls.filter(x => x.contactId === a.contactId);
+      if (cCalls.length > 0 && cCalls.every(x => NICHT_ERREICHT.test(x.subject || ''))) return 'noanswer';
+      return 'positive'; // echter Mail-Wunsch des Kontakts
+    }
+    if (['interested','appointment','callback'].includes(result)) return 'positive';
     if (NICHT_ERREICHT.test(s))   return 'noanswer';
     if (GATEKEEPER_NEG.test(s))   return 'gk_blocked';
     if (ENTSCHEIDER_NEG.test(s))  return 'dm_rejected';
     if (ENTSCHEIDER_POS.test(s))  return 'positive';
-    // Fallback: Gesprächsdauer ≥ 5 Min = wahrscheinlich Entscheider
     if ((a.duration || 0) >= 5)   return 'positive';
     return 'noanswer';
   };
@@ -4532,18 +4538,22 @@ function renderReports() {
   const uniqueGkBlocked  = new Set(callsGkBlocked.map(a => a.contactId).filter(Boolean));
   const uniqueDmRejected = new Set(callsDmRejected.map(a => a.contactId).filter(Boolean));
   const uniqueNotReached = new Set(callsNotReached.map(a => a.contactId).filter(Boolean));
+  const uniqueRealPositive = uniquePositive;
 
-  // Mail versendet = Marcel hat proaktiv eine Mail geschickt (OHNE dass Kontakt eine angefordert hat)
+  // Mail proaktiv (kein Nummer → Marcel hat Mail geschickt) – aus Aktivitäten
   const mailsSent       = periodActivities.filter(a => a.type === 'email' && DB.contacts.find(c => c.id === a.contactId)?.contactResult !== 'mail');
   const uniqueMailsSent = new Set(mailsSent.map(a => a.contactId).filter(Boolean));
 
-  // Für Conversion: alle echten positiven Signale inkl. Mail-Wunsch
-  const uniqueRealPositive = new Set(
-    DB.contacts.filter(c =>
-      ['interested','appointment','callback','mail'].includes(c.contactResult) &&
-      periodActivities.some(a => a.contactId === c.id)
-    ).map(c => c.id)
-  );
+  // Ergebnis-Verteilung – EINHEITLICH aus classifyCall (keine Diskrepanz mehr)
+  const resultCounts = {};
+  const seenClassified = new Set();
+  periodCalls.forEach(a => {
+    if (!a.contactId || seenClassified.has(a.contactId)) return;
+    seenClassified.add(a.contactId);
+    const cat = classifyCall(a);
+    const label = {positive:'Interesse/Termin', gk_blocked:'Gatekeeper', dm_rejected:'Abgelehnt', noanswer:'Nicht erreicht'}[cat];
+    if (label) resultCounts[label] = (resultCounts[label]||0)+1;
+  });
 
   // Follow-ups
   const periodTasks = DB.tasks.filter(t => t.done && (t.created || '') >= periodAgoISO && (!reportUser || t.assignedTo === reportUser));
@@ -4560,18 +4570,6 @@ function renderReports() {
   });
   const newProposals = DB.deals.filter(d => d.stage === 'proposal' && (d.created||'') >= periodAgoISO);
   const newWon       = DB.deals.filter(d => d.stage === 'won' && (d.created||'') >= periodAgoISO);
-
-  // Ergebnis-Verteilung – EINDEUTIGE Kontakte zählen (nicht Aktivitäten)
-  const resultCounts = {};
-  const seenForResult = new Set();
-  periodActivities.forEach(a => {
-    if (!a.contactId || seenForResult.has(a.contactId)) return;
-    const c = DB.contacts.find(x => x.id === a.contactId);
-    if (c && c.contactResult) {
-      seenForResult.add(a.contactId);
-      resultCounts[c.contactResult] = (resultCounts[c.contactResult]||0)+1;
-    }
-  });
 
   // KW berechnen
   const startOfYear = new Date(now.getFullYear(),0,1);
@@ -4656,16 +4654,15 @@ function renderReports() {
       </div>
 
       <!-- Ergebnis-Verteilung -->
-      ${periodActivities.length > 0 ? `
+      ${Object.keys(resultCounts).length > 0 ? `
       <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:16px 20px">
         <div style="font-size:12px;font-weight:700;color:#0D1B2A;margin-bottom:12px">Gesprächsergebnisse im Zeitraum</div>
         <div style="display:flex;flex-wrap:wrap;gap:10px">
-          ${Object.entries({interested:'Interesse',appointment:'Termin',callback:'Rückruf',mail:'Mail gewünscht',noanswer:'Nicht erreicht',rejected:'Abgelehnt'})
+          ${Object.entries({'Interesse/Termin':'#7C3AED,#EDE9FE','Gatekeeper':'#D97706,#FEF3C7','Abgelehnt':'#DC2626,#FEE2E2','Nicht erreicht':'#64748B,#F1F5F9'})
             .filter(([key]) => resultCounts[key])
-            .map(([key,label]) => {
-              const colors = {interested:'#7C3AED,#EDE9FE',appointment:'#16A34A,#DCFCE7',callback:'#1565C0,#E3F0FF',mail:'#D97706,#FEF3C7',noanswer:'#64748B,#F1F5F9',rejected:'#DC2626,#FEE2E2'};
-              const [c,bg] = (colors[key]||'#8A9AB0,#F8FAFC').split(',');
-              return `<div style="background:${bg};border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:${c}">${label}: <strong>${resultCounts[key]}</strong></div>`;
+            .map(([label,clr]) => {
+              const [c,bg] = clr.split(',');
+              return '<div style="background:'+bg+';border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:'+c+'">' + label + ': <strong>' + resultCounts[label] + '</strong></div>';
             }).join('')}
         </div>
       </div>` : '<div style="text-align:center;padding:12px;color:#8A9AB0;font-size:13px">Keine Aktivitäten im gewählten Zeitraum erfasst.</div>'}
