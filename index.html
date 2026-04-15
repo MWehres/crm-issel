@@ -4593,35 +4593,51 @@ function renderReports() {
       </div>
 
       <!-- KPI-Zeile 1: Anruf-Trichter -->
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
-        ${[
-          {label:'Anrufe gesamt',          val:periodCalls.length,        sub:contactedInPeriod.size+' Unternehmen · '+periodEmails.length+' Mails', color:'#1565C0'},
-          {label:'Entscheider erreicht',   val:uniqueReached.size,        sub:callsReached.length+' Gespräche',                              color:'#16A34A'},
-          {label:'Interesse / Termin',     val:uniqueRealPositive.size,   sub:'Termin · Interesse · Rückruf · Mail gewünscht', color:'#7C3AED'},
-          {label:'Mail proaktiv gesendet',  val:uniqueMailsSent.size,      sub:'ohne Kontaktanfrage',                           color:'#0891B2'},
-          {label:'Gatekeeper abgeblockt',  val:uniqueGkBlocked.size,      sub:'kein Durchkommen',                                            color:'#D97706'},
-          {label:'Nicht erreicht',         val:uniqueNotReached.size,     sub:'Mailbox · kein Abnehmen',                                     color:'#8A9AB0'},
-        ].map(k=>`
-          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">${k.label}</div>
-            <div style="font-size:26px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
-            <div style="font-size:10px;color:#8A9AB0;margin-top:4px">${k.sub}</div>
-          </div>`).join('')}
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Anrufe gesamt</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#1565C0;line-height:1">${periodCalls.length}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${contactedInPeriod.size} Unternehmen · ${periodEmails.length} Mails</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Entscheider erreicht</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#16A34A;line-height:1">${uniqueReached.size}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${callsReached.length} Gespräche geführt</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Gatekeeper abgeblockt</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#D97706;line-height:1">${uniqueGkBlocked.size}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">kein Durchkommen</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Nicht erreicht</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#8A9AB0;line-height:1">${uniqueNotReached.size}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Mailbox · kein Abnehmen</div>
+        </div>
       </div>
 
-      <!-- KPI-Zeile 2: Aktiv + Follow-up + Conversion -->
+      <!-- KPI-Zeile 2: Ergebnis -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        ${[
-          {label:'Aktiv kontaktierte Leads', val:contactedInPeriod.size, sub:periodCalls.length+' Anrufe bei '+contactedInPeriod.size+' Unternehmen', color:'#7C3AED'},
-          {label:'Follow-ups / Recalls offen',   val:followUps.length,                                                                               sub:periodTasks.length+' erledigt', color:'#D97706'},
-          {label:'Interesse / Termin',        val:uniqueRealPositive.size,                                                                              sub:'Termin · Interesse · Mail gewünscht',  color:'#16A34A'},
-          {label:'Conversion-Rate',              val:contactedInPeriod.size>0?Math.round(uniqueRealPositive.size/contactedInPeriod.size*100)+'%':'—',     sub:'(Interesse ÷ Kontaktiert)',     color:'#1565C0'},
-        ].map(k=>`
-          <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A9AB0;margin-bottom:8px">${k.label}</div>
-            <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:${k.color};line-height:1">${k.val}</div>
-            <div style="font-size:10px;color:#8A9AB0;margin-top:4px">${k.sub}</div>
-          </div>`).join('')}
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Interesse / Termin</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#7C3AED;line-height:1">${uniqueRealPositive.size}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Termin · Interesse · Rückruf · Mail gew.</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Conversion-Rate</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#1565C0;line-height:1">${contactedInPeriod.size>0?Math.round(uniqueRealPositive.size/contactedInPeriod.size*100)+'%':'—'}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Interesse ÷ kontaktierte Unternehmen</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Follow-ups offen</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#D97706;line-height:1">${followUps.length}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${periodTasks.length} im Zeitraum erledigt</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Mail proaktiv gesendet</div>
+          <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#0891B2;line-height:1">${uniqueMailsSent.size}</div>
+          <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Kaltakquise per Mail</div>
+        </div>
       </div>
 
       <!-- Ergebnis-Verteilung -->
