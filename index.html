@@ -1857,6 +1857,18 @@ textarea { resize: vertical; min-height: 80px; }
         <hr style="margin:16px 0;border:none;border-top:2px solid #0D1B2A">
       </div>
       <div id="report-content"></div>
+      <!-- Drill-Down Panel -->
+      <div id="report-drilldown" style="display:none;position:fixed;top:0;right:0;width:520px;height:100vh;background:#fff;box-shadow:-4px 0 32px rgba(0,0,0,.15);z-index:1000;overflow-y:auto;padding:0">
+        <div style="padding:20px 24px;border-bottom:1px solid #DDE3EA;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10">
+          <div>
+            <div id="drilldown-title" style="font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;color:#0D1B2A"></div>
+            <div id="drilldown-sub" style="font-size:12px;color:#8A9AB0;margin-top:2px"></div>
+          </div>
+          <button onclick="closeDrilldown()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#8A9AB0;padding:4px 8px;border-radius:6px" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='none'">✕</button>
+        </div>
+        <div id="drilldown-list" style="padding:16px 24px"></div>
+      </div>
+      <div id="report-drilldown-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.2);z-index:999" onclick="closeDrilldown()"></div>
     </div>
 
     <!-- ══ FINANZEN ══ -->
@@ -4549,11 +4561,14 @@ function renderReports() {
   const newProposals = DB.deals.filter(d => d.stage === 'proposal' && (d.created||'') >= periodAgoISO);
   const newWon       = DB.deals.filter(d => d.stage === 'won' && (d.created||'') >= periodAgoISO);
 
-  // Ergebnis-Verteilung
+  // Ergebnis-Verteilung – EINDEUTIGE Kontakte zählen (nicht Aktivitäten)
   const resultCounts = {};
+  const seenForResult = new Set();
   periodActivities.forEach(a => {
+    if (!a.contactId || seenForResult.has(a.contactId)) return;
     const c = DB.contacts.find(x => x.id === a.contactId);
     if (c && c.contactResult) {
+      seenForResult.add(a.contactId);
       resultCounts[c.contactResult] = (resultCounts[c.contactResult]||0)+1;
     }
   });
@@ -4594,23 +4609,23 @@ function renderReports() {
 
       <!-- KPI-Zeile 1: Anruf-Trichter -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Anrufe gesamt</div>
+        <div onclick="openDrilldown('Anrufe gesamt', [...new Set(periodActivities.filter(a=>a.type==='call').map(a=>a.contactId).filter(Boolean))],'${periodCalls.length} Anrufe · ${contactedInPeriod.size} Unternehmen')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(21,101,192,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Anrufe gesamt <span style="color:#1565C0">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#1565C0;line-height:1">${periodCalls.length}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${contactedInPeriod.size} Unternehmen · ${periodEmails.length} Mails</div>
         </div>
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Entscheider erreicht</div>
+        <div onclick="openDrilldown('Entscheider erreicht', [...uniqueReached], '${callsReached.length} Gespräche geführt')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(22,163,74,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Entscheider erreicht <span style="color:#16A34A">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#16A34A;line-height:1">${uniqueReached.size}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${callsReached.length} Gespräche geführt</div>
         </div>
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Gatekeeper abgeblockt</div>
+        <div onclick="openDrilldown('Gatekeeper abgeblockt', [...uniqueGkBlocked], 'kein Durchkommen')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(217,119,6,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Gatekeeper abgeblockt <span style="color:#D97706">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#D97706;line-height:1">${uniqueGkBlocked.size}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">kein Durchkommen</div>
         </div>
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Nicht erreicht</div>
+        <div onclick="openDrilldown('Nicht erreicht', [...uniqueNotReached], 'Mailbox · kein Abnehmen')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(138,154,176,.2)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Nicht erreicht <span style="color:#8A9AB0">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#8A9AB0;line-height:1">${uniqueNotReached.size}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Mailbox · kein Abnehmen</div>
         </div>
@@ -4618,8 +4633,8 @@ function renderReports() {
 
       <!-- KPI-Zeile 2: Ergebnis -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Interesse / Termin</div>
+        <div onclick="openDrilldown('Interesse / Termin', [...uniqueRealPositive], 'Termin · Interesse · Rückruf · Mail gew.')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(124,58,237,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Interesse / Termin <span style="color:#7C3AED">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#7C3AED;line-height:1">${uniqueRealPositive.size}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Termin · Interesse · Rückruf · Mail gew.</div>
         </div>
@@ -4628,13 +4643,13 @@ function renderReports() {
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#1565C0;line-height:1">${contactedInPeriod.size>0?Math.round(uniqueRealPositive.size/contactedInPeriod.size*100)+'%':'—'}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Interesse ÷ kontaktierte Unternehmen</div>
         </div>
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Follow-ups offen</div>
+        <div onclick="openDrilldown('Follow-ups offen', followUps.map(t=>t.contactId).filter(Boolean), '${followUps.length} offene Wiedervorlagen')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(217,119,6,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Follow-ups offen <span style="color:#D97706">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#D97706;line-height:1">${followUps.length}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">${periodTasks.length} im Zeitraum erledigt</div>
         </div>
-        <div style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Mail proaktiv gesendet</div>
+        <div onclick="openDrilldown('Mail proaktiv gesendet', [...uniqueMailsSent], 'Kaltakquise per Mail')" style="background:#fff;border-radius:10px;border:1px solid #DDE3EA;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(8,145,178,.15)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,.05)'">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A9AB0;margin-bottom:6px">Mail proaktiv gesendet <span style="color:#0891B2">→</span></div>
           <div style="font-size:28px;font-weight:800;font-family:'Outfit',sans-serif;color:#0891B2;line-height:1">${uniqueMailsSent.size}</div>
           <div style="font-size:11px;color:#8A9AB0;margin-top:5px">Kaltakquise per Mail</div>
         </div>
@@ -7705,6 +7720,65 @@ function wvInit() {
     if (h === 8) wvCheckAndNotify();
     wvUpdateBadge();
   }, 60 * 60 * 1000); // stündlich prüfen
+}
+
+// ══════════════════════════════════════════════════════════
+// REPORT DRILL-DOWN
+// ══════════════════════════════════════════════════════════
+function openDrilldown(title, contactIds, sub) {
+  const panel = document.getElementById('report-drilldown');
+  const overlay = document.getElementById('report-drilldown-overlay');
+  const listEl = document.getElementById('drilldown-list');
+  const titleEl = document.getElementById('drilldown-title');
+  const subEl = document.getElementById('drilldown-sub');
+  if (!panel) return;
+
+  titleEl.textContent = title;
+  subEl.textContent = sub || (contactIds.length + ' Kontakte');
+
+  const contacts = contactIds.map(id => DB.contacts.find(c => c.id === id)).filter(Boolean);
+  const statusColors = {Prospect:'#1565C0',Lead:'#D97706',Qualifiziert:'#7C3AED',Angebot:'#D97706',Kunde:'#16A34A',Inaktiv:'#8A9AB0'};
+  const crOpts = {interested:'🟢 Interesse',appointment:'📅 Termin',callback:'🔵 Rückruf',mail:'📩 Mail gew.',noanswer:'⚪ N. erreicht',rejected:'🔴 Abgelehnt'};
+
+  if (!contacts.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#8A9AB0;font-size:13px">Keine Kontakte in dieser Kategorie</div>';
+  } else {
+    listEl.innerHTML = contacts.map(c => {
+      const acts = DB.activities.filter(a => a.contactId === c.id).sort((a,b) => b.date > a.date ? 1 : -1);
+      const lastAct = acts[0];
+      const avatarColors = ['#1565C0','#7C3AED','#D97706','#16A34A','#DC2626'];
+      const avatarColor = avatarColors[c.id.charCodeAt(c.id.length-1) % avatarColors.length];
+      const initials = ((c.firstname||'')[0]||'') + ((c.lastname||'')[0]||'');
+      const statusColor = statusColors[c.status] || '#8A9AB0';
+      return '<div style="border:1px solid #DDE3EA;border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'" onclick="closeDrilldown();showAkte(\'' + c.id + '\')">'
+        + '<div style="display:flex;align-items:center;gap:12px">'
+        + '<div style="width:40px;height:40px;border-radius:10px;background:' + avatarColor + ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0">' + (initials||'?') + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:700;font-size:13.5px;color:#0D1B2A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.company) + '</div>'
+        + '<div style="font-size:11px;color:#8A9AB0;margin-top:2px">' + esc([c.firstname,c.lastname].filter(Boolean).join(' ') || c.position || '—') + (c.city ? ' · ' + esc(c.city) : '') + '</div>'
+        + '</div>'
+        + '<div style="text-align:right;flex-shrink:0">'
+        + '<div style="font-size:11px;font-weight:600;color:' + statusColor + '">' + esc(c.status||'') + '</div>'
+        + (c.contactResult ? '<div style="font-size:11px;color:#8A9AB0;margin-top:3px">' + (crOpts[c.contactResult]||'') + '</div>' : '')
+        + '</div></div>'
+        + (lastAct ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1F5F9;font-size:11.5px;color:#5A6B7B"><span style="color:#8A9AB0">Letzter Kontakt:</span> ' + esc(lastAct.subject||'') + ' · ' + formatDate(lastAct.date) + '</div>' : '')
+        + '<div style="margin-top:8px;display:flex;gap:6px">'
+        + '<button onclick="event.stopPropagation();closeDrilldown();openActivityModalFor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #DDE3EA;background:#F8FAFC;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#5A6B7B">+ Aktivität</button>'
+        + '<button onclick="event.stopPropagation();closeDrilldown();openTaskModalFor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #DDE3EA;background:#F8FAFC;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#5A6B7B">+ Aufgabe</button>'
+        + '<button onclick="event.stopPropagation();closeDrilldown();openPlaybookForContact(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #1565C0;background:#E3F0FF;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#1565C0;font-weight:600">▶ Leitfaden</button>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  panel.style.display = 'block';
+  overlay.style.display = 'block';
+}
+
+function closeDrilldown() {
+  const panel = document.getElementById('report-drilldown');
+  const overlay = document.getElementById('report-drilldown-overlay');
+  if (panel) panel.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
 }
 
 /* ══════════════════════════════════════════════════════════════
