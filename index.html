@@ -1323,23 +1323,19 @@ textarea { resize: vertical; min-height: 80px; }
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   KALKULATIONS-MODAL CSS (NEU)
-   ══════════════════════════════════════════════════════════════ */
-.kalk-modal{position:fixed;inset:0;background:rgba(13,27,42,0.95);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn 0.2s}
+/* KALKULATIONS-MODAL */
+.kalk-modal{position:fixed;inset:0;background:rgba(13,27,42,.95);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .kalk-modal.active{display:flex}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.kalk-modal-container{width:95vw;height:95vh;background:#0d1117;border:2px solid #d4a017;box-shadow:0 20px 80px rgba(212,160,23,0.3);display:flex;flex-direction:column;animation:slideUp 0.3s}
-@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.kalk-modal-container{width:95vw;height:95vh;background:#0d1117;border:2px solid #d4a017;box-shadow:0 20px 80px rgba(212,160,23,.3);display:flex;flex-direction:column}
 .kalk-modal-header{height:56px;background:linear-gradient(90deg,#0d1117 0%,#1a2438 50%,#0d1117 100%);border-bottom:1px solid #d4a017;padding:0 20px;display:flex;align-items:center;justify-content:space-between}
-.kalk-modal-title{font-size:14px;font-weight:700;color:#d4a017;letter-spacing:0.08em;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:12px}
+.kalk-modal-title{font-size:14px;font-weight:700;color:#d4a017;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:12px}
 .kalk-modal-title .deal-info{color:#8b949e;font-weight:400;font-size:12px;font-family:'DM Sans',sans-serif}
-.kalk-btn{padding:7px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:6px;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.kalk-btn{padding:7px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:6px;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .kalk-btn-close{background:transparent;color:#8b949e;border:1px solid #374151}
 .kalk-btn-close:hover{background:#1c2330;color:#fff}
 .kalk-modal-body{flex:1;display:flex;overflow:hidden}
 .kalk-modal-iframe{width:100%;height:100%;border:none;background:#0d1117}
-.deal-action-kalk{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;background:#d4a017;color:#000;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s}
+.deal-action-kalk{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;background:#d4a017;color:#000;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
 .deal-action-kalk:hover{background:#f0c040;transform:translateY(-1px)}
 </style>
 <body>
@@ -3836,6 +3832,7 @@ function renderContacts(list) {
     const avatarColor = avatarColors[c.id.charCodeAt(c.id.length-1) % avatarColors.length];
     const isSelected = _bulkSelected.has(c.id);
     const cr = CR_OPTIONS[c.contactResult || ''] || CR_OPTIONS[''];
+      + '<button class="btn-icon btn-sm deal-action-kalk" title="Angebot kalkulieren" onclick="event.stopPropagation();openKalkulation(\'' + c.id + '\')">📊</button>'
     const rowClass = isSelected ? '' : cr.rowClass;
     return '<tr onclick="showAkte(\'' + c.id + '\')" class="' + rowClass + '" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
       + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
@@ -8677,65 +8674,93 @@ function deptFillCheckboxes(str) {
 
 
 
-/* ══════════════════════════════════════════════════════════════
-   KALKULATIONS-INTEGRATION (NEU)
-   ══════════════════════════════════════════════════════════════ */
-let currentDealId=null,kalkulationIframe=null;
-function openKalkulation(contactId){
-  const contact=contacts.find(c=>c.id===contactId);
-  if(!contact)return alert('Kontakt nicht gefunden');
-  currentDealId=contactId;
-  const modal=document.getElementById('kalk-modal');
+
+/* KALKULATIONS-INTEGRATION */
+var currentDealId = null;
+var kalkulationIframe = null;
+
+function openKalkulation(contactId) {
+  var contact = contacts.find(function(c) { return c.id === contactId; });
+  if (!contact) {
+    alert('Kontakt nicht gefunden');
+    return;
+  }
+  
+  currentDealId = contactId;
+  
+  var modal = document.getElementById('kalk-modal');
+  if (!modal) {
+    console.error('Modal nicht gefunden!');
+    return;
+  }
+  
   modal.classList.add('active');
-  document.body.style.overflow='hidden';
-  const info=document.getElementById('kalk-deal-info');
-  if(info)info.textContent=contact.company||'';
-  localStorage.setItem('crm_kalkulation_data',JSON.stringify({
-    company:contact.company||'',
-    firstname:contact.firstname||'',
-    lastname:contact.lastname||'',
-    street:contact.street||'',
-    zip:contact.zip||'',
-    city:contact.city||'',
-    email:contact.email||'',
-    phone:contact.phone||contact.mobile||'',
-    contactId:contact.id,
-    timestamp:Date.now()
+  document.body.style.overflow = 'hidden';
+  
+  var info = document.getElementById('kalk-deal-info');
+  if (info) {
+    info.textContent = contact.company || 'Unbekannt';
+  }
+  
+  localStorage.setItem('crm_kalkulation_data', JSON.stringify({
+    company: contact.company || '',
+    firstname: contact.firstname || '',
+    lastname: contact.lastname || '',
+    street: contact.street || '',
+    zip: contact.zip || '',
+    city: contact.city || '',
+    email: contact.email || '',
+    phone: contact.phone || contact.mobile || '',
+    contactId: contact.id,
+    timestamp: Date.now()
   }));
-  kalkulationIframe=document.getElementById('kalk-iframe');
-  kalkulationIframe.src='SVS-Kalkulationstool_ISSSeL_v3_36.html';
-  console.log('✓ Kalkulation geöffnet');
+  
+  kalkulationIframe = document.getElementById('kalk-iframe');
+  if (kalkulationIframe) {
+    kalkulationIframe.src = 'SVS-Kalkulationstool_ISSSeL_v3_36.html';
+  }
+  
+  console.log('Kalkulation geöffnet für:', contact.company);
 }
-function closeKalkulation(){
-  const modal=document.getElementById('kalk-modal');
-  modal.classList.remove('active');
-  document.body.style.overflow='';
-  setTimeout(()=>{
-    if(kalkulationIframe)kalkulationIframe.src='';
-    currentDealId=null;
-  },300);
+
+function closeKalkulation() {
+  var modal = document.getElementById('kalk-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  document.body.style.overflow = '';
+  
+  setTimeout(function() {
+    if (kalkulationIframe) {
+      kalkulationIframe.src = '';
+    }
+    currentDealId = null;
+  }, 300);
+  
+  console.log('Kalkulation geschlossen');
 }
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&currentDealId&&confirm('Kalkulation schließen?'))closeKalkulation();
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && currentDealId) {
+    if (confirm('Kalkulation schließen? Ungespeicherte Änderungen gehen verloren.')) {
+      closeKalkulation();
+    }
+  }
 });
-document.addEventListener('click',e=>{
-  if(e.target.id==='kalk-modal'&&confirm('Kalkulation schließen?'))closeKalkulation();
+
+document.addEventListener('click', function(e) {
+  if (e.target.id === 'kalk-modal') {
+    if (confirm('Kalkulation schließen? Ungespeicherte Änderungen gehen verloren.')) {
+      closeKalkulation();
+    }
+  }
 });
-console.log('✓ Kalkulations-Integration geladen');
+
+console.log('Kalkulations-Integration geladen');
+
 </script>
 
 
-<!-- KALKULATIONS-MODAL (NEU) -->
-<div class="kalk-modal" id="kalk-modal">
-  <div class="kalk-modal-container">
-    <div class="kalk-modal-header">
-      <div class="kalk-modal-title">📊 Angebotskalkulation <span class="deal-info" id="kalk-deal-info"></span></div>
-      <button class="kalk-btn kalk-btn-close" onclick="closeKalkulation()">✕ Schließen</button>
-    </div>
-    <div class="kalk-modal-body">
-      <iframe id="kalk-iframe" class="kalk-modal-iframe" src="" allow="clipboard-write"></iframe>
-    </div>
-  </div>
-</div>
+<div class="kalk-modal" id="kalk-modal"><div class="kalk-modal-container"><div class="kalk-modal-header"><div class="kalk-modal-title">📊 Angebotskalkulation <span class="deal-info" id="kalk-deal-info"></span></div><button class="kalk-btn kalk-btn-close" onclick="closeKalkulation()">✕ Schließen</button></div><div class="kalk-modal-body"><iframe id="kalk-iframe" class="kalk-modal-iframe" src="" allow="clipboard-write"></iframe></div></div></div>
 </body>
 </html>
