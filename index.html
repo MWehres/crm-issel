@@ -3713,6 +3713,16 @@ function _sha256Pure(msg) {
 }
 
 // ── Passwort-Hashing (SHA-256 via Web Crypto) ─────────────
+// ── Sicheres Passwort generieren ──
+function generateSecurePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pwd = '';
+  for (let i = 0; i < 12; i++) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pwd;
+}
+
 async function hashPassword(password) {
   const input = password + 'issel_crm_salt_2024';
 
@@ -3860,20 +3870,40 @@ async function doLogin() {
 
   try {
     const hash  = await hashPassword(password);
+    console.log('🔐 Login-Versuch:');
+    console.log('   Username:', username);
+    console.log('   Passwort:', password);
+    console.log('   Hash (erste 20 Zeichen):', hash.substring(0, 20) + '...');
+    
     const users = loadAuthUsers();
+    console.log('   Anzahl User in DB:', users.length);
+    
     const user  = users.find(u =>
       u.username.toLowerCase() === username &&
       u.passwordHash === hash &&
       u.active !== false
     );
-
+    
     if (!user) {
+      console.log('❌ Kein User gefunden!');
+      console.log('   Verfügbare Usernames:', users.map(u => u.username).join(', '));
+      
+      // Debug: Prüfe ob Username existiert
+      const userByName = users.find(u => u.username.toLowerCase() === username);
+      if (userByName) {
+        console.log('   ⚠️ Username existiert, aber Hash stimmt nicht!');
+        console.log('   Gespeicherter Hash:', userByName.passwordHash.substring(0, 20) + '...');
+        console.log('   Berechneter Hash:', hash.substring(0, 20) + '...');
+        console.log('   Hashes identisch?', userByName.passwordHash === hash);
+      }
+      
       showLoginError('Benutzername oder Passwort falsch.');
       btn.disabled = false;
       btn.textContent = 'Anmelden';
       return;
     }
 
+    console.log('✅ Login erfolgreich!');
     setSession(user);
     showApp();
 
@@ -4022,7 +4052,7 @@ function openAuthUserModal(userId) {
 async function saveAuthUser() {
   const name     = document.getElementById('ae-name').value.trim();
   const username = document.getElementById('ae-username').value.trim().toLowerCase();
-  const password = document.getElementById('ae-password').value;
+  let password   = document.getElementById('ae-password').value;
   const role     = document.getElementById('ae-role').value;
   const active   = document.getElementById('ae-active').checked;
 
@@ -4033,7 +4063,14 @@ async function saveAuthUser() {
   const department = depts.join(',');
 
   if (!username) { toast('Benutzername ist Pflicht', 'error'); return; }
-  if (!_editingAuthUserId && !password) { toast('Passwort ist Pflicht für neue Benutzer', 'error'); return; }
+  
+  // ✅ NEU: Auto-Passwort für neue User falls leer
+  let generatedPassword = null;
+  if (!_editingAuthUserId && !password) {
+    password = generateSecurePassword();
+    generatedPassword = password;
+    console.log('🔑 Auto-generiertes Passwort:', password);
+  }
 
   const users = loadAuthUsers();
   const dup = users.find(u => u.username === username && u.id !== _editingAuthUserId);
@@ -4059,9 +4096,13 @@ async function saveAuthUser() {
     }
   } else {
     const hash = await hashPassword(password);
+    console.log('🔑 Neuer User:', username);
+    console.log('🔑 Passwort:', password);
+    console.log('🔒 Hash (erste 20 Zeichen):', hash.substring(0, 20) + '...');
+    
     // Neue ID die sowohl für Auth-User als auch DB.users verwendet wird
     dbUserId = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    users.push({
+    const newUser = {
       id: 'a_' + Date.now(),
       dbUserId,
       username,
@@ -4071,7 +4112,9 @@ async function saveAuthUser() {
       department,
       active,
       created: new Date().toISOString()
-    });
+    };
+    users.push(newUser);
+    console.log('✅ User angelegt:', newUser);
   }
 
   saveAuthUsers(users);
@@ -4099,6 +4142,13 @@ async function saveAuthUser() {
     if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
     if (typeof updateTeamBadge === 'function') updateTeamBadge();
     if (typeof renderTeam === 'function' && document.getElementById('page-team')?.classList.contains('active')) renderTeam();
+  }
+
+  // ✅ NEU: Passwort-Anzeige für neue Benutzer
+  if (generatedPassword) {
+    setTimeout(() => {
+      alert(`✅ Benutzer erfolgreich angelegt!\n\nBenutzername: ${username}\nPasswort: ${generatedPassword}\n\n⚠️ WICHTIG: Notieren Sie sich das Passwort jetzt!\nEs wird nicht nochmal angezeigt.`);
+    }, 100);
   }
 
   closeModal('modal-auth-edit');
