@@ -14366,10 +14366,10 @@ function printAngebot() {
   }, 150);
 }
 
-const STORAGE_KEY = 'issel_kalkul_saves';
+const KALK_STORAGE_KEY = 'issel_kalkul_saves';
 
 function getAllSaves() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(KALK_STORAGE_KEY) || '{}'); }
   catch(e) { return {}; }
 }
 
@@ -14481,7 +14481,7 @@ function doSave(alsoExport = false) {
   const key  = 'save_' + Date.now();
   const saves = getAllSaves();
   saves[key]  = snap;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saves));
+  localStorage.setItem(KALK_STORAGE_KEY, JSON.stringify(saves));
   closeSaveDialog();
   refreshSaveDropdown();
   // Select the just-saved entry
@@ -14511,7 +14511,7 @@ function deleteSave(key) {
   const name  = saves[key]?.name || key;
   if(!confirm(`"${name}" löschen?`)) return;
   delete saves[key];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saves));
+  localStorage.setItem(KALK_STORAGE_KEY, JSON.stringify(saves));
   refreshSaveDropdown();
 }
 
@@ -14548,7 +14548,7 @@ function importJSON(input) {
       snap.name   = name;
       const saves = getAllSaves();
       saves[key]  = snap;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(saves));
+      localStorage.setItem(KALK_STORAGE_KEY, JSON.stringify(saves));
       refreshSaveDropdown();
       const sel = el('save-select');
       if(sel) sel.value = key;
@@ -14711,7 +14711,12 @@ window.addEventListener('DOMContentLoaded', function() {
 
 // KALKULATIONS-MODAL
 function openKalkulation(contactId) {
-  var contact = contacts.find(function(c) { return c.id === contactId; });
+  // Kontakt aus DB holen
+  if (typeof DB === 'undefined' || !DB.contacts) {
+    return alert('CRM-Daten nicht verfügbar');
+  }
+  
+  var contact = DB.contacts.find(function(c) { return c.id === contactId; });
   if (!contact) return alert('Kontakt nicht gefunden');
   
   // Modal öffnen
@@ -14732,7 +14737,7 @@ function openKalkulation(contactId) {
     if (typeof calc === 'function') calc();
   }, 300);
   
-  console.log('Kalkulation geöffnet');
+  console.log('Kalkulation geöffnet für:', contact.company);
 }
 
 function closeKalkModal() {
