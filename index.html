@@ -3637,7 +3637,35 @@ textarea { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
 <script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB8tJP8xQI9NA0KHEIIcjSq4MLRUw5dP2w",
+  authDomain: "crm-issel.firebaseapp.com",
+  databaseURL: "https://crm-issel-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "crm-issel",
+  storageBucket: "crm-issel.firebasestorage.app",
+  messagingSenderId: "177247757331",
+  appId: "1:177247757331:web:afb55d5a9a34dd16d18be6",
+  measurementId: "G-VZXSFPCV34"
+};
+
+// Firebase initialisieren
+if (!firebase.apps || firebase.apps.length === 0) {
+  firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebase.auth();
+const database = firebase.database();
+
+console.log('✅ Firebase initialisiert:', firebaseConfig.projectId);
+
 // ══════════════════════════════════════════════════════════
 // AUTH / LOGIN SYSTEM
 // ══════════════════════════════════════════════════════════
@@ -3865,53 +3893,89 @@ async function doLogin() {
   }
 
   btn.disabled = true;
-  btn.textContent = 'Prüfe…';
+  btn.textContent = 'Anmelde…';
   errEl.style.display = 'none';
 
   try {
-    const hash  = await hashPassword(password);
-    console.log('🔐 Login-Versuch:');
-    console.log('   Username:', username);
-    console.log('   Passwort:', password);
-    console.log('   Hash (erste 20 Zeichen):', hash.substring(0, 20) + '...');
+    // 🔥 FIREBASE AUTH VERSUCH
+    console.log('🔥 Firebase Auth Login-Versuch:', username);
     
-    const users = loadAuthUsers();
-    console.log('   Anzahl User in DB:', users.length);
+    const email = username.includes('@') ? username : `${username}@crm-issel.local`;
     
-    const user  = users.find(u =>
-      u.username.toLowerCase() === username &&
-      u.passwordHash === hash &&
-      u.active !== false
-    );
-    
-    if (!user) {
-      console.log('❌ Kein User gefunden!');
-      console.log('   Verfügbare Usernames:', users.map(u => u.username).join(', '));
+    try {
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      console.log('✅ Firebase Auth erfolgreich!', userCredential.user.email);
       
-      // Debug: Prüfe ob Username existiert
-      const userByName = users.find(u => u.username.toLowerCase() === username);
-      if (userByName) {
-        console.log('   ⚠️ Username existiert, aber Hash stimmt nicht!');
-        console.log('   Gespeicherter Hash:', userByName.passwordHash.substring(0, 20) + '...');
-        console.log('   Berechneter Hash:', hash.substring(0, 20) + '...');
-        console.log('   Hashes identisch?', userByName.passwordHash === hash);
+      // User-Daten aus DB laden
+      const uid = userCredential.user.uid;
+      const dbUser = await loadUserFromDB(uid);
+      
+      if (dbUser) {
+        setSession({
+          userId: uid,
+          username: dbUser.username || username,
+          email: userCredential.user.email,
+          name: dbUser.name || userCredential.user.displayName || username,
+          role: dbUser.role || 'user',
+          department: dbUser.department || ''
+        });
+      } else {
+        setSession({
+          userId: uid,
+          username: username,
+          email: userCredential.user.email,
+          name: userCredential.user.displayName || username,
+          role: 'user',
+          department: ''
+        });
       }
       
-      showLoginError('Benutzername oder Passwort falsch.');
-      btn.disabled = false;
-      btn.textContent = 'Anmelden';
+      showApp();
       return;
+      
+    } catch (fbError) {
+      console.log('⚠️ Firebase Auth fehlgeschlagen:', fbError.code);
+      
+      // Falls user-not-found: Versuche localStorage (Fallback für alte User)
+      if (fbError.code === 'auth/user-not-found' || fbError.code === 'auth/wrong-password') {
+        console.log('🔄 Fallback zu localStorage Auth...');
+        
+        const hash = await hashPassword(password);
+        const users = loadAuthUsers();
+        const user = users.find(u =>
+          u.username.toLowerCase() === username &&
+          u.passwordHash === hash &&
+          u.active !== false
+        );
+        
+        if (user) {
+          console.log('✅ localStorage Auth erfolgreich!');
+          setSession(user);
+          showApp();
+          return;
+        }
+      }
+      
+      // Beide Methoden fehlgeschlagen
+      throw new Error('Benutzername oder Passwort falsch.');
     }
 
-    console.log('✅ Login erfolgreich!');
-    setSession(user);
-    showApp();
-
   } catch(e) {
-    console.error('[Login Fehler]', e);
-    showLoginError('Fehler: ' + e.message);
+    console.error('❌ Login Fehler:', e);
+    showLoginError(e.message || 'Anmeldung fehlgeschlagen');
     btn.disabled = false;
     btn.textContent = 'Anmelden';
+  }
+}
+
+// User-Daten aus Firebase DB laden
+async function loadUserFromDB(uid) {
+  try {
+    const snapshot = await database.ref('users/' + uid).once('value');
+    return snapshot.val();
+  } catch (error) {
+    console.warn('⚠️ User-Daten laden fehlgeschlagen:', error);
+    return null;
   }
 }
 
@@ -4064,7 +4128,7 @@ async function saveAuthUser() {
 
   if (!username) { toast('Benutzername ist Pflicht', 'error'); return; }
   
-  // ✅ NEU: Auto-Passwort für neue User falls leer
+  // Auto-Passwort für neue User falls leer
   let generatedPassword = null;
   if (!_editingAuthUserId && !password) {
     password = generateSecurePassword();
@@ -4072,88 +4136,136 @@ async function saveAuthUser() {
     console.log('🔑 Auto-generiertes Passwort:', password);
   }
 
-  const users = loadAuthUsers();
-  const dup = users.find(u => u.username === username && u.id !== _editingAuthUserId);
-  if (dup) { toast('Benutzername bereits vergeben', 'error'); return; }
-
-  let dbUserId;
-
-  if (_editingAuthUserId) {
-    const idx = users.findIndex(u => u.id === _editingAuthUserId);
-    if (idx < 0) return;
-    users[idx].name       = name;
-    users[idx].username   = username;
-    users[idx].role       = role;
-    users[idx].active     = active;
-    users[idx].department = department;
-    if (password) users[idx].passwordHash = await hashPassword(password);
-    dbUserId = users[idx].dbUserId;
-    if (currentUser && _editingAuthUserId === currentUser.userId) {
-      currentUser.name = name; currentUser.username = username;
-      currentUser.role = role; currentUser.department = department;
-      setSession(users[idx]);
-      updateSidebarUserBadge();
-    }
-  } else {
-    const hash = await hashPassword(password);
-    console.log('🔑 Neuer User:', username);
-    console.log('🔑 Passwort:', password);
-    console.log('🔒 Hash (erste 20 Zeichen):', hash.substring(0, 20) + '...');
-    
-    // Neue ID die sowohl für Auth-User als auch DB.users verwendet wird
-    dbUserId = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    const newUser = {
-      id: 'a_' + Date.now(),
-      dbUserId,
-      username,
-      passwordHash: hash,
-      name,
-      role,
-      department,
-      active,
-      created: new Date().toISOString()
-    };
-    users.push(newUser);
-    console.log('✅ User angelegt:', newUser);
-  }
-
-  saveAuthUsers(users);
-
-  // ── Automatisch in DB.users (CRM-Team) synchronisieren ──
-  if (typeof DB !== 'undefined' && dbUserId) {
-    const existingIdx = DB.users.findIndex(u => u.id === dbUserId || u.authId === (_editingAuthUserId || ''));
-    const dbEntry = {
-      id:         dbUserId,
-      authId:     _editingAuthUserId || users[users.length-1]?.id,
-      name:       name || username,
-      role:       role === 'admin' ? 'Administrator' : 'Mitarbeiter',
-      department,
-      color:      existingIdx >= 0 ? (DB.users[existingIdx].color || '#1565C0') : '#1565C0',
-      email:      existingIdx >= 0 ? (DB.users[existingIdx].email || '') : '',
-      active,
-      created:    new Date().toISOString()
-    };
-    if (existingIdx >= 0) {
-      DB.users[existingIdx] = { ...DB.users[existingIdx], ...dbEntry };
+  try {
+    if (_editingAuthUserId) {
+      // USER BEARBEITEN (noch localStorage)
+      const users = loadAuthUsers();
+      const idx = users.findIndex(u => u.id === _editingAuthUserId);
+      if (idx < 0) return;
+      
+      users[idx].name = name;
+      users[idx].username = username;
+      users[idx].role = role;
+      users[idx].active = active;
+      users[idx].department = department;
+      if (password) users[idx].passwordHash = await hashPassword(password);
+      
+      saveAuthUsers(users);
+      
+      if (currentUser && _editingAuthUserId === currentUser.userId) {
+        currentUser.name = name;
+        currentUser.username = username;
+        currentUser.role = role;
+        currentUser.department = department;
+        setSession(users[idx]);
+        updateSidebarUserBadge();
+      }
+      
     } else {
-      DB.users.push(dbEntry);
+      // NEUER USER → 🔥 FIREBASE AUTH!
+      const email = username.includes('@') ? username : `${username}@crm-issel.local`;
+      
+      console.log('🔥 Erstelle Firebase Auth User:', email);
+      
+      // Firebase Auth User erstellen
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      const firebaseUser = userCredential.user;
+      const uid = firebaseUser.uid;
+      
+      console.log('✅ Firebase User erstellt:', uid);
+      
+      // DisplayName setzen
+      await firebaseUser.updateProfile({
+        displayName: name || username
+      });
+      
+      // User-Daten in Firebase DB speichern
+      const userData = {
+        uid: uid,
+        username: username,
+        email: email,
+        name: name || username,
+        role: role,
+        department: department,
+        active: active,
+        created: new Date().toISOString()
+      };
+      
+      await database.ref('users/' + uid).set(userData);
+      console.log('✅ User-Daten in Firebase DB gespeichert');
+      
+      // AUCH in localStorage speichern (für Backup/Fallback)
+      const users = loadAuthUsers();
+      const hash = await hashPassword(password);
+      users.push({
+        id: 'a_' + Date.now(),
+        dbUserId: uid,
+        username: username,
+        passwordHash: hash,
+        name: name || username,
+        role: role,
+        department: department,
+        active: active,
+        created: new Date().toISOString(),
+        firebaseUid: uid
+      });
+      saveAuthUsers(users);
+      
+      // In DB.users (CRM) syncen
+      if (typeof DB !== 'undefined') {
+        DB.users.push({
+          id: uid,
+          authId: uid,
+          name: name || username,
+          role: role === 'admin' ? 'Administrator' : 'Mitarbeiter',
+          department: department,
+          email: email,
+          color: '#1565C0',
+          active: active,
+          created: new Date().toISOString()
+        });
+        
+        if (typeof save === 'function') save();
+        if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
+        if (typeof updateTeamBadge === 'function') updateTeamBadge();
+        if (typeof renderTeam === 'function') renderTeam();
+      }
+      
+      // Passwort anzeigen
+      if (generatedPassword) {
+        setTimeout(() => {
+          alert(`✅ Benutzer erfolgreich angelegt!\n\n` +
+                `Benutzername: ${username}\n` +
+                `Passwort: ${generatedPassword}\n\n` +
+                `⚠️ WICHTIG: Notieren Sie sich das Passwort jetzt!\n` +
+                `Es wird nicht nochmal angezeigt.\n\n` +
+                `✓ User ist in Firebase gespeichert\n` +
+                `✓ Login funktioniert von jedem Gerät!`);
+        }, 100);
+      }
     }
-    if (typeof save === 'function') save();
-    if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
-    if (typeof updateTeamBadge === 'function') updateTeamBadge();
-    if (typeof renderTeam === 'function' && document.getElementById('page-team')?.classList.contains('active')) renderTeam();
-  }
 
-  // ✅ NEU: Passwort-Anzeige für neue Benutzer
-  if (generatedPassword) {
-    setTimeout(() => {
-      alert(`✅ Benutzer erfolgreich angelegt!\n\nBenutzername: ${username}\nPasswort: ${generatedPassword}\n\n⚠️ WICHTIG: Notieren Sie sich das Passwort jetzt!\nEs wird nicht nochmal angezeigt.`);
-    }, 100);
+    closeModal('modal-auth-edit');
+    renderAuthUsersList();
+    toast(_editingAuthUserId ? 'Benutzer aktualisiert' : 'Benutzer angelegt', 'success');
+    
+  } catch (error) {
+    console.error('❌ User-Erstellung Fehler:', error);
+    
+    let errorMsg = 'Fehler beim Anlegen des Benutzers';
+    
+    if (error.code === 'auth/email-already-in-use') {
+      errorMsg = 'Benutzername bereits vergeben';
+    } else if (error.code === 'auth/weak-password') {
+      errorMsg = 'Passwort zu schwach (mindestens 6 Zeichen)';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMsg = 'Ungültiger Benutzername';
+    } else if (error.message) {
+      errorMsg = error.message;
+    }
+    
+    toast(errorMsg, 'error');
   }
-
-  closeModal('modal-auth-edit');
-  renderAuthUsersList();
-  toast(_editingAuthUserId ? 'Benutzer aktualisiert' : 'Benutzer angelegt', 'success');
 }
 
 function deleteAuthUser(userId) {
