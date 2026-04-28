@@ -17,6 +17,11 @@
 <!-- Leaflet.js – Kartenbibliothek (Open Source, kein API-Key) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Firebase SDK - MUSS VOR ALLEM ANDEREN LADEN -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 /* ── LEAFLET ISOLATION: verhindert dass Leaflet-CSS globale SVG/DOM-Elemente beeinflusst ── */
 /* Alle Leaflet-Positionen nur innerhalb echter Map-Container */
@@ -3638,13 +3643,14 @@ textarea { resize: vertical; min-height: 80px; }
 </div>
 
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
 // Firebase Configuration
+// ══════════════════════════════════════════════════════════
+// FIREBASE CONFIGURATION & INITIALIZATION
+// ══════════════════════════════════════════════════════════
+
 const firebaseConfig = {
   apiKey: "AIzaSyB8tJP8xQI9NA0KHEIIcjSq4MLRUw5dP2w",
   authDomain: "crm-issel.firebaseapp.com",
@@ -3656,15 +3662,37 @@ const firebaseConfig = {
   measurementId: "G-VZXSFPCV34"
 };
 
-// Firebase initialisieren
-if (!firebase.apps || firebase.apps.length === 0) {
-  firebase.initializeApp(firebaseConfig);
+// Firebase Variablen
+let auth = null;
+let database = null;
+let firebaseReady = false;
+
+// Firebase initialisieren (mit Retry falls noch nicht geladen)
+function initializeFirebase() {
+  if (typeof firebase === 'undefined') {
+    console.warn('⏳ Firebase SDK noch nicht geladen, warte...');
+    setTimeout(initializeFirebase, 100);
+    return;
+  }
+  
+  try {
+    if (!firebase.apps || firebase.apps.length === 0) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    
+    auth = firebase.auth();
+    database = firebase.database();
+    firebaseReady = true;
+    
+    console.log('✅ Firebase initialisiert:', firebaseConfig.projectId);
+  } catch (error) {
+    console.error('❌ Firebase Init Fehler:', error);
+    firebaseReady = false;
+  }
 }
 
-const auth = firebase.auth();
-const database = firebase.database();
-
-console.log('✅ Firebase initialisiert:', firebaseConfig.projectId);
+// Sofort versuchen zu initialisieren
+initializeFirebase();
 
 // ══════════════════════════════════════════════════════════
 // AUTH / LOGIN SYSTEM
@@ -3899,12 +3927,14 @@ async function doLogin() {
   try {
     // 🔥 FIREBASE AUTH VERSUCH
     console.log('🔥 Firebase Auth Login-Versuch:', username);
+    console.log('🔥 Firebase bereit?', firebaseReady);
     
-    const email = username.includes('@') ? username : `${username}@crm-issel.local`;
-    
-    try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
-      console.log('✅ Firebase Auth erfolgreich!', userCredential.user.email);
+    if (firebaseReady && auth) {
+      const email = username.includes('@') ? username : `${username}@crm-issel.local`;
+      
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        console.log('✅ Firebase Auth erfolgreich!', userCredential.user.email);
       
       // User-Daten aus DB laden
       const uid = userCredential.user.uid;
@@ -3933,30 +3963,51 @@ async function doLogin() {
       showApp();
       return;
       
-    } catch (fbError) {
-      console.log('⚠️ Firebase Auth fehlgeschlagen:', fbError.code);
-      
-      // Falls user-not-found: Versuche localStorage (Fallback für alte User)
-      if (fbError.code === 'auth/user-not-found' || fbError.code === 'auth/wrong-password') {
-        console.log('🔄 Fallback zu localStorage Auth...');
+      } catch (fbError) {
+        console.log('⚠️ Firebase Auth fehlgeschlagen:', fbError.code);
         
-        const hash = await hashPassword(password);
-        const users = loadAuthUsers();
-        const user = users.find(u =>
-          u.username.toLowerCase() === username &&
-          u.passwordHash === hash &&
-          u.active !== false
-        );
-        
-        if (user) {
-          console.log('✅ localStorage Auth erfolgreich!');
-          setSession(user);
-          showApp();
-          return;
+        // Falls user-not-found: Versuche localStorage (Fallback für alte User)
+        if (fbError.code === 'auth/user-not-found' || fbError.code === 'auth/wrong-password') {
+          console.log('🔄 Fallback zu localStorage Auth...');
+          
+          const hash = await hashPassword(password);
+          const users = loadAuthUsers();
+          const user = users.find(u =>
+            u.username.toLowerCase() === username &&
+            u.passwordHash === hash &&
+            u.active !== false
+          );
+          
+          if (user) {
+            console.log('✅ localStorage Auth erfolgreich!');
+            setSession(user);
+            showApp();
+            return;
+          }
         }
+        
+        // Beide Methoden fehlgeschlagen
+        throw new Error('Benutzername oder Passwort falsch.');
+      }
+    } else {
+      // Firebase nicht bereit → Direkt localStorage probieren
+      console.log('⚠️ Firebase nicht bereit, verwende localStorage...');
+      
+      const hash = await hashPassword(password);
+      const users = loadAuthUsers();
+      const user = users.find(u =>
+        u.username.toLowerCase() === username &&
+        u.passwordHash === hash &&
+        u.active !== false
+      );
+      
+      if (user) {
+        console.log('✅ localStorage Auth erfolgreich!');
+        setSession(user);
+        showApp();
+        return;
       }
       
-      // Beide Methoden fehlgeschlagen
       throw new Error('Benutzername oder Passwort falsch.');
     }
 
@@ -4163,9 +4214,12 @@ async function saveAuthUser() {
       
     } else {
       // NEUER USER → 🔥 FIREBASE AUTH!
-      const email = username.includes('@') ? username : `${username}@crm-issel.local`;
+      console.log('🔥 Firebase bereit?', firebaseReady);
       
-      console.log('🔥 Erstelle Firebase Auth User:', email);
+      if (firebaseReady && auth) {
+        const email = username.includes('@') ? username : `${username}@crm-issel.local`;
+        
+        console.log('🔥 Erstelle Firebase Auth User:', email);
       
       // Firebase Auth User erstellen
       const userCredential = await auth.createUserWithEmailAndPassword(email, password);
@@ -4242,6 +4296,59 @@ async function saveAuthUser() {
                 `✓ User ist in Firebase gespeichert\n` +
                 `✓ Login funktioniert von jedem Gerät!`);
         }, 100);
+      }
+      } else {
+        // Firebase nicht verfügbar → Nur localStorage
+        console.log('⚠️ Firebase nicht verfügbar, erstelle nur localStorage User');
+        
+        const users = loadAuthUsers();
+        const hash = await hashPassword(password);
+        const dbUserId = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        
+        users.push({
+          id: 'a_' + Date.now(),
+          dbUserId: dbUserId,
+          username: username,
+          passwordHash: hash,
+          name: name || username,
+          role: role,
+          department: department,
+          active: active,
+          created: new Date().toISOString()
+        });
+        saveAuthUsers(users);
+        
+        // In DB.users (CRM) syncen
+        if (typeof DB !== 'undefined') {
+          DB.users.push({
+            id: dbUserId,
+            authId: 'a_' + Date.now(),
+            name: name || username,
+            role: role === 'admin' ? 'Administrator' : 'Mitarbeiter',
+            department: department,
+            email: '',
+            color: '#1565C0',
+            active: active,
+            created: new Date().toISOString()
+          });
+          
+          if (typeof save === 'function') save();
+          if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
+          if (typeof updateTeamBadge === 'function') updateTeamBadge();
+          if (typeof renderTeam === 'function') renderTeam();
+        }
+        
+        // Passwort anzeigen
+        if (generatedPassword) {
+          setTimeout(() => {
+            alert(`✅ Benutzer erfolgreich angelegt!\n\n` +
+                  `Benutzername: ${username}\n` +
+                  `Passwort: ${generatedPassword}\n\n` +
+                  `⚠️ WICHTIG: Notieren Sie sich das Passwort jetzt!\n` +
+                  `Es wird nicht nochmal angezeigt.\n\n` +
+                  `⚠️ Hinweis: User wurde nur lokal gespeichert (Firebase nicht verfügbar)`);
+          }, 100);
+        }
       }
     }
 
