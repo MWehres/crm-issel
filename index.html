@@ -1326,17 +1326,38 @@ textarea { resize: vertical; min-height: 80px; }
 /* KALKULATIONS-MODAL */
 .kalk-modal{position:fixed;inset:0;background:rgba(13,27,42,.95);z-index:9999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .kalk-modal.active{display:flex}
-.kalk-modal-container{width:95vw;height:95vh;background:#0d1117;border:2px solid #d4a017;box-shadow:0 20px 80px rgba(212,160,23,.3);display:flex;flex-direction:column}
-.kalk-modal-header{height:56px;background:linear-gradient(90deg,#0d1117 0%,#1a2438 50%,#0d1117 100%);border-bottom:1px solid #d4a017;padding:0 20px;display:flex;align-items:center;justify-content:space-between}
-.kalk-modal-title{font-size:14px;font-weight:700;color:#d4a017;letter-spacing:.08em;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:12px}
-.kalk-modal-title .deal-info{color:#8b949e;font-weight:400;font-size:12px;font-family:'DM Sans',sans-serif}
-.kalk-btn{padding:7px 16px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;border-radius:6px;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
-.kalk-btn-close{background:transparent;color:#8b949e;border:1px solid #374151}
-.kalk-btn-close:hover{background:#1c2330;color:#fff}
-.kalk-modal-body{flex:1;display:flex;overflow:hidden}
-.kalk-modal-iframe{width:100%;height:100%;border:none;background:#0d1117}
-.deal-action-kalk{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;background:#d4a017;color:#000;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.kalk-modal-container{width:900px;max-width:95vw;max-height:90vh;background:#fff;border-radius:12px;box-shadow:0 20px 80px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}
+.kalk-modal-header{padding:20px 24px;background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #d4a017}
+.kalk-modal-title{font-size:20px;font-weight:700;font-family:'Outfit',sans-serif}
+.kalk-btn-close{background:transparent;border:none;color:#fff;font-size:24px;cursor:pointer;padding:4px 8px;opacity:.8;transition:opacity .2s}
+.kalk-btn-close:hover{opacity:1}
+.kalk-modal-body{flex:1;overflow-y:auto;padding:24px}
+.kalk-section{margin-bottom:28px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid #e0e0e0}
+.kalk-section-title{font-size:16px;font-weight:700;color:#0D1B2A;margin:0 0 16px 0;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:8px}
+.kalk-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.kalk-form-group{display:flex;flex-direction:column;gap:6px}
+.kalk-form-group label{font-size:12px;font-weight:600;color:#5A6B7B;text-transform:uppercase;letter-spacing:.05em}
+.kalk-input{padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:'DM Sans',sans-serif;transition:border .2s}
+.kalk-input:focus{outline:none;border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,.1)}
+.kalk-input:read-only{background:#f5f5f5;color:#666}
+.kalk-input-small{max-width:120px}
+.kalk-result{background:linear-gradient(135deg,#f0f7ff,#e3f0ff);border-color:#1565C0}
+.kalk-result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.kalk-result-item{text-align:center}
+.kalk-result-label{font-size:11px;font-weight:600;color:#5A6B7B;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.kalk-result-value{font-size:24px;font-weight:700;color:#0D1B2A;font-family:'Outfit',sans-serif}
+.kalk-result-highlight{color:#1565C0}
+.kalk-result-total{grid-column:span 3;padding-top:16px;border-top:2px solid #1565C0;margin-top:8px}
+.kalk-result-total-value{font-size:32px;color:#d4a017}
+.kalk-modal-footer{padding:20px 24px;background:#f8f9fa;border-top:1px solid #e0e0e0;display:flex;justify-content:flex-end;gap:12px}
+.kalk-btn{padding:10px 20px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.kalk-btn-secondary{background:#e0e0e0;color:#333}
+.kalk-btn-secondary:hover{background:#d0d0d0}
+.kalk-btn-primary{background:#d4a017;color:#000}
+.kalk-btn-primary:hover{background:#f0c040;transform:translateY(-2px);box-shadow:0 4px 12px rgba(212,160,23,.3)}
+.deal-action-kalk{display:inline-flex;align-items:center;gap:4px;padding:5px 9px;background:#d4a017;color:#000;border:none;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
 .deal-action-kalk:hover{background:#f0c040;transform:translateY(-1px)}
+@media(max-width:768px){.kalk-modal-container{width:100vw;height:100vh;max-width:100vw;max-height:100vh;border-radius:0}.kalk-result-grid{grid-template-columns:1fr}.kalk-result-total{grid-column:1}}
 </style>
 <body>
 
@@ -3832,7 +3853,6 @@ function renderContacts(list) {
     const avatarColor = avatarColors[c.id.charCodeAt(c.id.length-1) % avatarColors.length];
     const isSelected = _bulkSelected.has(c.id);
     const cr = CR_OPTIONS[c.contactResult || ''] || CR_OPTIONS[''];
-      + '<button class="btn-icon btn-sm deal-action-kalk" title="Angebot kalkulieren" onclick="event.stopPropagation();openKalkulation(\'' + c.id + '\')">📊</button>'
     const rowClass = isSelected ? '' : cr.rowClass;
     return '<tr onclick="showAkte(\'' + c.id + '\')" class="' + rowClass + '" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
       + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
@@ -8674,93 +8694,127 @@ function deptFillCheckboxes(str) {
 
 
 
+/* ══════════════════════════════════════════════════════════════
+   EMBEDDED KALKULATIONS-SYSTEM
+   Komplettes Kalkulations-Tool direkt im CRM
+   ══════════════════════════════════════════════════════════════ */
 
-/* KALKULATIONS-INTEGRATION */
-var currentDealId = null;
-var kalkulationIframe = null;
+var currentKalkContact = null;
 
 function openKalkulation(contactId) {
   var contact = contacts.find(function(c) { return c.id === contactId; });
-  if (!contact) {
-    alert('Kontakt nicht gefunden');
-    return;
-  }
+  if (!contact) return alert('Kontakt nicht gefunden');
   
-  currentDealId = contactId;
+  currentKalkContact = contact;
   
-  var modal = document.getElementById('kalk-modal');
-  if (!modal) {
-    console.error('Modal nicht gefunden!');
-    return;
-  }
+  // Kontaktdaten ins Formular eintragen
+  document.getElementById('kalk-firma').value = contact.company || '';
+  document.getElementById('kalk-ansprechpartner').value = 
+    [contact.firstname, contact.lastname].filter(Boolean).join(' ') || '';
+  document.getElementById('kalk-strasse').value = contact.street || '';
+  document.getElementById('kalk-plz').value = contact.zip || '';
+  document.getElementById('kalk-ort').value = contact.city || '';
   
-  modal.classList.add('active');
+  // Standard-Werte setzen
+  document.getElementById('kalk-stundensatz').value = '25';
+  document.getElementById('kalk-mitarbeiter').value = '1';
+  document.getElementById('kalk-stunden-woche').value = '40';
+  document.getElementById('kalk-monate').value = '12';
+  
+  // Modal öffnen
+  document.getElementById('kalk-modal').classList.add('active');
   document.body.style.overflow = 'hidden';
   
-  var info = document.getElementById('kalk-deal-info');
-  if (info) {
-    info.textContent = contact.company || 'Unbekannt';
-  }
-  
-  localStorage.setItem('crm_kalkulation_data', JSON.stringify({
-    company: contact.company || '',
-    firstname: contact.firstname || '',
-    lastname: contact.lastname || '',
-    street: contact.street || '',
-    zip: contact.zip || '',
-    city: contact.city || '',
-    email: contact.email || '',
-    phone: contact.phone || contact.mobile || '',
-    contactId: contact.id,
-    timestamp: Date.now()
-  }));
-  
-  kalkulationIframe = document.getElementById('kalk-iframe');
-  if (kalkulationIframe) {
-    kalkulationIframe.src = 'SVS-Kalkulationstool_ISSSeL_v3_36.html';
-  }
+  // Berechnung starten
+  kalkulationBerechnen();
   
   console.log('Kalkulation geöffnet für:', contact.company);
 }
 
 function closeKalkulation() {
-  var modal = document.getElementById('kalk-modal');
-  if (modal) {
-    modal.classList.remove('active');
-  }
+  document.getElementById('kalk-modal').classList.remove('active');
   document.body.style.overflow = '';
-  
-  setTimeout(function() {
-    if (kalkulationIframe) {
-      kalkulationIframe.src = '';
-    }
-    currentDealId = null;
-  }, 300);
-  
-  console.log('Kalkulation geschlossen');
+  currentKalkContact = null;
 }
 
+function kalkulationBerechnen() {
+  // Werte holen
+  var stundensatz = parseFloat(document.getElementById('kalk-stundensatz').value) || 0;
+  var mitarbeiter = parseInt(document.getElementById('kalk-mitarbeiter').value) || 0;
+  var stundenWoche = parseFloat(document.getElementById('kalk-stunden-woche').value) || 0;
+  var monate = parseInt(document.getElementById('kalk-monate').value) || 0;
+  
+  // Berechnungen
+  var stundenMonat = (stundenWoche * 4.33); // Durchschnitt Wochen/Monat
+  var kostenMonat = stundenMonat * stundensatz * mitarbeiter;
+  var gesamtkosten = kostenMonat * monate;
+  
+  // Ergebnisse anzeigen
+  document.getElementById('kalk-stunden-monat').textContent = stundenMonat.toFixed(1);
+  document.getElementById('kalk-kosten-monat').textContent = formatEuro(kostenMonat);
+  document.getElementById('kalk-gesamtkosten').textContent = formatEuro(gesamtkosten);
+}
+
+function formatEuro(betrag) {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(betrag);
+}
+
+function kalkulationSpeichern() {
+  if (!currentKalkContact) return;
+  
+  var kalkulation = {
+    firma: document.getElementById('kalk-firma').value,
+    ansprechpartner: document.getElementById('kalk-ansprechpartner').value,
+    stundensatz: parseFloat(document.getElementById('kalk-stundensatz').value),
+    mitarbeiter: parseInt(document.getElementById('kalk-mitarbeiter').value),
+    stundenWoche: parseFloat(document.getElementById('kalk-stunden-woche').value),
+    monate: parseInt(document.getElementById('kalk-monate').value),
+    stundenMonat: parseFloat(document.getElementById('kalk-stunden-monat').textContent),
+    kostenMonat: document.getElementById('kalk-kosten-monat').textContent,
+    gesamtkosten: document.getElementById('kalk-gesamtkosten').textContent,
+    datum: new Date().toISOString(),
+    contactId: currentKalkContact.id
+  };
+  
+  console.log('Kalkulation:', kalkulation);
+  
+  // In Firestore speichern (optional)
+  if (typeof firebase !== 'undefined' && firebase.firestore) {
+    firebase.firestore()
+      .collection('contacts')
+      .doc(currentKalkContact.id)
+      .collection('kalkulationen')
+      .add(kalkulation)
+      .then(function() {
+        alert('Kalkulation gespeichert! ✓');
+        closeKalkulation();
+      })
+      .catch(function(error) {
+        console.error('Fehler beim Speichern:', error);
+        alert('Kalkulation konnte nicht gespeichert werden.');
+      });
+  } else {
+    alert('Kalkulation erstellt!\n\n' + 
+          'Firma: ' + kalkulation.firma + '\n' +
+          'Monatlich: ' + kalkulation.kostenMonat + '\n' +
+          'Gesamt: ' + kalkulation.gesamtkosten);
+    closeKalkulation();
+  }
+}
+
+// Event Listener
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && currentDealId) {
-    if (confirm('Kalkulation schließen? Ungespeicherte Änderungen gehen verloren.')) {
-      closeKalkulation();
-    }
+  if (e.key === 'Escape' && currentKalkContact) {
+    closeKalkulation();
   }
 });
 
-document.addEventListener('click', function(e) {
-  if (e.target.id === 'kalk-modal') {
-    if (confirm('Kalkulation schließen? Ungespeicherte Änderungen gehen verloren.')) {
-      closeKalkulation();
-    }
-  }
-});
-
-console.log('Kalkulations-Integration geladen');
-
+console.log('✓ Embedded Kalkulations-System geladen');
 </script>
 
-
-<div class="kalk-modal" id="kalk-modal"><div class="kalk-modal-container"><div class="kalk-modal-header"><div class="kalk-modal-title">📊 Angebotskalkulation <span class="deal-info" id="kalk-deal-info"></span></div><button class="kalk-btn kalk-btn-close" onclick="closeKalkulation()">✕ Schließen</button></div><div class="kalk-modal-body"><iframe id="kalk-iframe" class="kalk-modal-iframe" src="" allow="clipboard-write"></iframe></div></div></div>
+<div class="kalk-modal" id="kalk-modal"><div class="kalk-modal-container"><div class="kalk-modal-header"><div class="kalk-modal-title">📊 Angebotskalkulation erstellen</div><button class="kalk-btn-close" onclick="closeKalkulation()">✕</button></div><div class="kalk-modal-body"><div class="kalk-section"><h3 class="kalk-section-title">Kundendaten</h3><div class="kalk-form-grid"><div class="kalk-form-group"><label>Firma</label><input type="text" id="kalk-firma" class="kalk-input" readonly></div><div class="kalk-form-group"><label>Ansprechpartner</label><input type="text" id="kalk-ansprechpartner" class="kalk-input" readonly></div><div class="kalk-form-group"><label>Straße</label><input type="text" id="kalk-strasse" class="kalk-input" readonly></div><div class="kalk-form-group"><label>PLZ</label><input type="text" id="kalk-plz" class="kalk-input kalk-input-small" readonly></div><div class="kalk-form-group"><label>Ort</label><input type="text" id="kalk-ort" class="kalk-input" readonly></div></div></div><div class="kalk-section"><h3 class="kalk-section-title">Kalkulationsparameter</h3><div class="kalk-form-grid"><div class="kalk-form-group"><label>Stundensatz (€)</label><input type="number" id="kalk-stundensatz" class="kalk-input" oninput="kalkulationBerechnen()" step="0.5" min="0"></div><div class="kalk-form-group"><label>Anzahl Mitarbeiter</label><input type="number" id="kalk-mitarbeiter" class="kalk-input" oninput="kalkulationBerechnen()" min="1"></div><div class="kalk-form-group"><label>Stunden pro Woche</label><input type="number" id="kalk-stunden-woche" class="kalk-input" oninput="kalkulationBerechnen()" step="0.5" min="0"></div><div class="kalk-form-group"><label>Vertragsdauer (Monate)</label><input type="number" id="kalk-monate" class="kalk-input" oninput="kalkulationBerechnen()" min="1"></div></div></div><div class="kalk-section kalk-result"><h3 class="kalk-section-title">Berechnung</h3><div class="kalk-result-grid"><div class="kalk-result-item"><div class="kalk-result-label">Stunden pro Monat</div><div class="kalk-result-value" id="kalk-stunden-monat">0</div></div><div class="kalk-result-item"><div class="kalk-result-label">Kosten pro Monat</div><div class="kalk-result-value kalk-result-highlight" id="kalk-kosten-monat">€ 0,00</div></div><div class="kalk-result-item kalk-result-total"><div class="kalk-result-label">Gesamtkosten</div><div class="kalk-result-value kalk-result-total-value" id="kalk-gesamtkosten">€ 0,00</div></div></div></div></div><div class="kalk-modal-footer"><button class="kalk-btn kalk-btn-secondary" onclick="closeKalkulation()">Abbrechen</button><button class="kalk-btn kalk-btn-primary" onclick="kalkulationSpeichern()">💾 Angebot speichern</button></div></div></div>
 </body>
 </html>
