@@ -4583,16 +4583,11 @@ function applyRemoteData(remote) {
     // Speichern
     save();
     
-    // Aktuelle Seite neu laden
-    const activePage = document.querySelector('.page.active');
-    if (activePage) {
-      const pageId = activePage.id;
-      if (pageId === 'page-contacts') {
-        renderContacts(DB.contacts);
-      } else if (pageId === 'page-dashboard') {
-        loadPage('dashboard');
-      }
-    }
+    // Nach dem Laden der Daten zur Kontakte-Seite navigieren
+    setTimeout(() => {
+      showPage('contacts');
+      console.log('[FB] Navigiere zu Kontakte-Seite');
+    }, 100);
     
     console.log('[FB] Remote-Daten erfolgreich angewendet');
     
