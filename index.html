@@ -4534,6 +4534,73 @@ async function _fbDoPush() {
   }
 }
 
+// ── REMOTE DATA ANWENDEN ──────────────────────────────────
+function applyRemoteData(remote) {
+  try {
+    console.log('[FB] Wende Remote-Daten an...');
+    
+    // Kontakte übernehmen
+    if (remote.contacts && Array.isArray(remote.contacts)) {
+      DB.contacts = remote.contacts;
+      console.log(`[FB] ${DB.contacts.length} Kontakte geladen`);
+    }
+    
+    // Deals übernehmen
+    if (remote.deals && Array.isArray(remote.deals)) {
+      DB.deals = remote.deals;
+    }
+    
+    // Activities übernehmen
+    if (remote.activities && Array.isArray(remote.activities)) {
+      DB.activities = remote.activities;
+    }
+    
+    // Tasks übernehmen
+    if (remote.tasks && Array.isArray(remote.tasks)) {
+      DB.tasks = remote.tasks;
+    }
+    
+    // Users übernehmen
+    if (remote.users && Array.isArray(remote.users)) {
+      DB.users = remote.users;
+    }
+    
+    // Lists übernehmen
+    if (remote.lists && Array.isArray(remote.lists)) {
+      DB.lists = remote.lists;
+    }
+    
+    // Auth Users übernehmen
+    if (remote.authUsers && Array.isArray(remote.authUsers)) {
+      saveAuthUsers(remote.authUsers);
+    }
+    
+    // Timestamp übernehmen
+    if (remote._ts) {
+      _fbTs = remote._ts;
+    }
+    
+    // Speichern
+    save();
+    
+    // Aktuelle Seite neu laden
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+      const pageId = activePage.id;
+      if (pageId === 'page-contacts') {
+        renderContacts(DB.contacts);
+      } else if (pageId === 'page-dashboard') {
+        loadPage('dashboard');
+      }
+    }
+    
+    console.log('[FB] Remote-Daten erfolgreich angewendet');
+    
+  } catch (error) {
+    console.error('[FB] Fehler beim Anwenden der Remote-Daten:', error);
+  }
+}
+
 // ── POLL ─────────────────────────────────────────────────
 async function _fbDoPoll() {
   if (!fbIsConfigured()) return;
