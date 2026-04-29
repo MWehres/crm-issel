@@ -1331,7 +1331,7 @@ textarea { resize: vertical; min-height: 80px; }
     --bg3: #1c2330;
     --bg4: #212a38;
     --border: #2d3748;
-    --gold: #d4a017;
+    --gold: #1565C0;
     --gold2: #f0c040;
     --gold-dim: #8a6a0a;
     --text: #c9d1d9;
@@ -1347,7 +1347,7 @@ textarea { resize: vertical; min-height: 80px; }
     --calc-border: #1d3354;
     --input-bg: #1c2330;
     --input-border: #374151;
-    --input-focus: #d4a017;
+    --input-focus: #1565C0;
     --header-h: 60px;
     --tab-h: 44px;
   }
@@ -1963,7 +1963,7 @@ textarea { resize: vertical; min-height: 80px; }
   .btn-kompo-del:hover { color: #ff6b6b; }
   .kompo-synced-hint {
     font-size: 10px; color: var(--gold); font-family: 'IBM Plex Mono', monospace;
-    padding: 4px 8px; background: rgba(212,160,23,0.08);
+    padding: 4px 8px; background: rgba(21,101,192,0.08);
     border-left: 2px solid var(--gold-dim); margin-bottom: 6px;
   }
 
@@ -4583,12 +4583,6 @@ function applyRemoteData(remote) {
     // Speichern
     save();
     
-    // Nach dem Laden der Daten zur Kontakte-Seite navigieren
-    setTimeout(() => {
-      showPage('contacts');
-      console.log('[FB] Navigiere zu Kontakte-Seite');
-    }, 100);
-    
     console.log('[FB] Remote-Daten erfolgreich angewendet');
     
   } catch (error) {
@@ -5181,7 +5175,7 @@ function renderContacts(list) {
       + '<td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">'
       + '<button class="btn-icon btn-sm" data-cr-trigger="' + c.id + '" title="Gesprächsergebnis setzen" onclick="event.stopPropagation();crQuickMenu(\'' + c.id + '\',\'' + (c.contactResult||'') + '\')" style="color:' + (cr.color || 'var(--text3)') + ';font-size:13px;padding:4px 6px">' + (cr.icon || '&#9711;') + '</button>'
       + '<button class="btn-icon btn-sm" title="Akte" onclick="showAkte(\'' + c.id + '\')" style="color:var(--accent)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke-width="2"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke-width="2"/></svg></button>'
-      + '<button class="btn-icon btn-sm" title="Angebot kalkulieren" onclick="event.stopPropagation();openKalkulation(\'' + c.id + '\')" style="background:#d4a017;color:#000;font-weight:600;padding:5px 9px;font-size:11px;border-radius:4px">📊</button>'
+      + '<button class="btn-icon btn-sm" title="Angebot kalkulieren" onclick="event.stopPropagation();openKalkulation(\'' + c.id + '\')" style="background:#1565C0;color:#000;font-weight:600;padding:5px 9px;font-size:11px;border-radius:4px">📊</button>'
       + '<button class="btn-icon btn-sm" title="Aktivität" onclick="openActivityModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Aufgabe" onclick="openTaskModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Leitfaden" onclick="openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>'
@@ -10010,20 +10004,444 @@ function deptFillCheckboxes(str) {
 
 
 <!-- KALKULATIONS-MODAL mit kompletten Tool -->
-<div id="kalk-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;display:none;overflow:auto">
-  <div style="position:sticky;top:0;background:#000;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #d4a017;z-index:10000">
-    <span style="color:#d4a017;font-weight:700;font-size:18px">📊 Angebotskalkulation</span>
-    <button onclick="closeKalkModal()" style="background:#d4a017;color:#000;border:none;padding:8px 16px;cursor:pointer;font-weight:600;border-radius:4px">✕ Schließen</button>
+<div id="kalk-modal" style="position:fixed;inset:0;background:#f5f5f5;z-index:9999;display:none;overflow:auto">
+  <div style="position:sticky;top:0;background:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1565C0;z-index:10000;box-shadow:0 2px 4px rgba(0,0,0,0.1)">
+    <span style="color:#1565C0;font-weight:700;font-size:18px">📊 Angebotskalkulation</span>
+    <button onclick="closeKalkModal()" style="background:#1565C0;color:#fff;border:none;padding:8px 16px;cursor:pointer;font-weight:600;border-radius:4px;box-shadow:0 2px 4px rgba(0,0,0,0.1)">✕ Schließen</button>
   </div>
-  <div id="kalk-content" style="max-width:1400px;margin:0 auto;padding:20px">
+  <div id="kalk-content" style="max-width:1400px;margin:0 auto;padding:20px;background:#f5f5f5">
+  
+  <style>
+/* ═══════════════════════════════════════════════════════════
+   KALKULATIONSTOOL - MODERNES CRM-DESIGN
+   Komplett neu designed für professionelle Optik
+   ═══════════════════════════════════════════════════════════ */
+
+/* CSS Variablen - CRM Style */
+#kalk-content {
+  --primary: #1565C0;
+  --primary-light: #E3F2FD;
+  --primary-dark: #0D47A1;
+  
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  
+  --bg-main: #f8f9fa;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f5f5;
+  
+  --border-light: #e0e0e0;
+  --border-medium: #d0d0d0;
+  --border-dark: #b0b0b0;
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.12);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.16);
+  
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+/* Reset & Base */
+#kalk-content * {
+  box-sizing: border-box;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+#kalk-content {
+  background: var(--bg-main);
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+}
+
+/* Header - Minimal & Modern */
+#kalk-content .app-header {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+#kalk-content .brand {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+#kalk-content .brand-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+#kalk-content .brand-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+#kalk-content .brand-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Header Right - KPIs & Actions */
+#kalk-content .header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+#kalk-content .header-kpi {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+#kalk-content .header-kpi span {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 2px;
+}
+
+/* Tabs - Clean & Minimal */
+#kalk-content .tabs-bar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  background: var(--bg-card);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+
+#kalk-content .tab-btn {
+  background: transparent;
+  border: none;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+#kalk-content .tab-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+#kalk-content .tab-btn.active {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+}
+
+#kalk-content .tab-num {
+  opacity: 0.7;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Cards - Modern & Clean */
+#kalk-content .card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  transition: box-shadow 0.2s ease;
+}
+
+#kalk-content .card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+#kalk-content .card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Section Headers */
+#kalk-content .section-header {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+#kalk-content .sect-note {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Input Fields - Modern */
+#kalk-content input[type="text"],
+#kalk-content input[type="number"],
+#kalk-content input[type="date"],
+#kalk-content select,
+#kalk-content textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: white;
+  transition: all 0.2s ease;
+}
+
+#kalk-content input:focus,
+#kalk-content select:focus,
+#kalk-content textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+#kalk-content input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Field Rows */
+#kalk-content .field-row {
+  margin-bottom: var(--spacing-md);
+}
+
+#kalk-content .field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+#kalk-content .field-label.required::after {
+  content: " *";
+  color: #dc2626;
+}
+
+/* Grids */
+#kalk-content .grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+  #kalk-content .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Buttons - Modern */
+#kalk-content button {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+#kalk-content .btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+#kalk-content .btn-primary:hover {
+  background: var(--primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+#kalk-content .btn-export {
+  background: white;
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+#kalk-content .btn-export:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+}
+
+/* Diensttyp Cards - Modern Selection */
+#kalk-content .diensttyp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+}
+
+#kalk-content .diensttyp-card {
+  background: white;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#kalk-content .diensttyp-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+#kalk-content .diensttyp-card.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+#kalk-content .diensttyp-icon {
+  font-size: 32px;
+  margin-bottom: var(--spacing-sm);
+}
+
+#kalk-content .diensttyp-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+#kalk-content .diensttyp-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Toggle Buttons */
+#kalk-content .toggle-btn {
+  padding: 8px 16px;
+  border: 2px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: white;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#kalk-content .toggle-btn:hover {
+  border-color: var(--primary);
+}
+
+#kalk-content .toggle-btn.on {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Mode Buttons */
+#kalk-content .mode-btn {
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+#kalk-content .mode-btn.active {
+  box-shadow: var(--shadow-md);
+}
+
+/* Tab Panes */
+#kalk-content .tab-pane {
+  display: none;
+}
+
+#kalk-content .tab-pane.active {
+  display: block;
+}
+
+/* Utility Classes */
+#kalk-content .wide {
+  width: 100%;
+}
+
+#kalk-content .text-right {
+  text-align: right;
+}
+
+#kalk-content .text-center {
+  text-align: center;
+}
+
+#kalk-content .mb-0 { margin-bottom: 0; }
+#kalk-content .mb-sm { margin-bottom: var(--spacing-sm); }
+#kalk-content .mb-md { margin-bottom: var(--spacing-md); }
+#kalk-content .mb-lg { margin-bottom: var(--spacing-lg); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  #kalk-content {
+    padding: var(--spacing-md);
+  }
+  
+  #kalk-content .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  #kalk-content .header-right {
+    flex-wrap: wrap;
+  }
+}
+  </style>
 
 <!-- HEADER -->
 <header class="app-header">
   <div class="brand">
-    <div class="brand-icon">🛡</div>
+    <div class="brand-icon" id="kalk-brand-icon">🛡</div>
     <div>
-      <div class="brand-name">I.S.Se.L. GmbH</div>
-      <div class="brand-sub">SVS-Kalkulationstool v2.0</div>
+      <div class="brand-name" id="kalk-brand-name">Issel Security GmbH</div>
+      <div class="brand-sub" id="kalk-brand-sub">Angebotskalkulation</div>
     </div>
   </div>
   <div class="header-right">
@@ -10050,16 +10468,33 @@ function deptFillCheckboxes(str) {
   <button class="tab-btn" id="tabnav-2" onclick="switchTab(2)"><span class="tab-num">03</span>Bewachung — Schichten</button>
   <button class="tab-btn" id="tabnav-3" onclick="switchTab(3)" style="display:none"><span class="tab-num">04</span>Revierdienst</button>
   <button class="tab-btn" id="tabnav-4" onclick="switchTab(4)" style="display:none"><span class="tab-num">05</span>Sicherheitstechnik</button>
-  <button class="tab-btn" id="tabnav-5" onclick="switchTab(5)" style="display:none"><span class="tab-num">06</span>Break-Even</button>
-  <button class="tab-btn" id="tabnav-6" onclick="switchTab(6)"><span class="tab-num">07</span>BWA</button>
-  <button class="tab-btn" id="tabnav-7" onclick="switchTab(7)"><span class="tab-num">08</span>Zuschlagsmaske</button>
-  <button class="tab-btn" id="tabnav-8" onclick="switchTab(8)" style="border-left:1px solid var(--gold-dim);color:var(--gold)"><span class="tab-num" style="color:var(--gold)">★</span>Angebot</button>
+  <button class="tab-btn" id="tabnav-5" onclick="switchTab(5)"><span class="tab-num">06</span>Zuschlagsmaske</button>
+  <button class="tab-btn" id="tabnav-6" onclick="switchTab(6)" style="border-left:1px solid #1565C0;color:#1565C0"><span class="tab-num" style="color:#1565C0">★</span>Angebot</button>
 </nav>
 
 <div class="content">
 
 <!-- ============================================================ TAB 1: ANGEBOTSEINGABE -->
 <div class="tab-pane active" id="tab-0">
+  
+  <!-- BERECHNUNGSMODUS TOGGLE -->
+  <div class="card" style="margin-bottom:20px;background:#1565C010;border:2px solid #1565C0">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:14px;color:#1565C0;margin-bottom:4px">Berechnungsmodus</div>
+        <div style="font-size:12px;color:#fff;opacity:0.7">Wählen Sie die Art der Kalkulation</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="mode-svs-btn" class="mode-btn active" onclick="setKalkMode('svs')" style="padding:8px 16px;border:2px solid #1565C0;background:#1565C0;color:#fff;font-weight:600;cursor:pointer;border-radius:4px">
+          📊 SVS-Kalkulation
+        </button>
+        <button id="mode-simple-btn" class="mode-btn" onclick="setKalkMode('simple')" style="padding:8px 16px;border:2px solid #1565C0;background:transparent;color:#1565C0;font-weight:600;cursor:pointer;border-radius:4px">
+          💰 Einfache Preise
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="section-header">Kundendaten</div>
   <div class="grid-2">
     <div class="card">
@@ -10120,6 +10555,47 @@ function deptFillCheckboxes(str) {
     </div>
   </div>
 
+  <!-- EINFACHER MODUS: DIREKTE PREISEINGABE -->
+  <div id="simple-price-section" style="display:none;margin:20px 0">
+    <div class="section-header">💰 Preiseingabe <span class="sect-note">Geben Sie Ihre Preise direkt ein</span></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Monatliche Kosten</div>
+        <div class="field-row">
+          <span class="field-label required">Preis pro Monat (netto)</span>
+          <input type="number" id="simple-price-monthly" value="0" min="0" step="0.01" oninput="calcSimple()" style="text-align:right">
+          <span style="margin-left:8px;color:#1565C0;font-weight:600">€</span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Oder: Preis pro Stunde</span>
+          <input type="number" id="simple-price-hourly" value="0" min="0" step="0.01" oninput="calcSimpleFromHourly()" style="text-align:right">
+          <span style="margin-left:8px;color:#1565C0;font-weight:600">€</span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Stunden pro Monat</span>
+          <input type="number" id="simple-hours-monthly" value="160" min="1" oninput="calcSimpleFromHourly()">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Zusammenfassung</div>
+        <div style="padding:10px;background:#1565C010;border-radius:4px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span>Monatspreis (netto):</span>
+            <strong id="simple-display-monthly" style="color:#1565C0">0,00 €</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span>Vertragslaufzeit:</span>
+            <strong id="simple-display-months" style="color:#1565C0">12 Monate</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid #1565C0">
+            <span style="font-size:16px;font-weight:600">Gesamtumsatz:</span>
+            <strong id="simple-display-total" style="color:#1565C0;font-size:18px">0,00 €</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="section-header">Dienstleistungen <span class="sect-note">Mehrfachauswahl möglich — Berechnungsmasken passen sich automatisch an</span></div>
   <div class="grid-2">
     <div class="card">
@@ -10144,6 +10620,11 @@ function deptFillCheckboxes(str) {
           <div class="diensttyp-icon">📡</div>
           <div class="diensttyp-name">NSL-Aufschaltung</div>
           <div class="diensttyp-desc">Notruf- & Serviceleitstelle, Fernüberwachung</div>
+        </div>
+        <div class="diensttyp-card" id="dt-facility" onclick="selectDiensttyp('facility')">
+          <div class="diensttyp-icon">🏢</div>
+          <div class="diensttyp-name">Facility Management</div>
+          <div class="diensttyp-desc">Gebäudemanagement, Reinigung, Instandhaltung</div>
         </div>
       </div>
       <div style="margin-top:12px;font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace">
@@ -11547,7 +12028,7 @@ function deptFillCheckboxes(str) {
 </div>
 
 <!-- ============================================================ TAB 6: ZUSCHLAGSMASKE -->
-<div class="tab-pane" id="tab-7">
+<div class="tab-pane" id="tab-5">
   <div class="section-header">Zuschlagssätze nach Bundesland <span class="sect-note">Quelle: Tarifverträge Wach- und Sicherheitsgewerbe / BWSD/ver.di</span></div>
   <table class="calc-table">
     <thead><tr>
@@ -11603,7 +12084,7 @@ function deptFillCheckboxes(str) {
 </div>
 
 <!-- ============================================================ TAB 9: ANGEBOT (Kundensicht) -->
-<div class="tab-pane" id="tab-8">
+<div class="tab-pane" id="tab-6">
 
   <!-- ── STEUERLEISTE (nur Bildschirm, nicht gedruckt) ── -->
   <div class="ag-controls">
@@ -11807,8 +12288,8 @@ const isOn = id => el(id)?.classList.contains('on');
 function switchTab(i) {
   document.querySelectorAll('.tab-pane').forEach((p,j) => p.classList.toggle('active', i===j));
   document.querySelectorAll('.tab-btn').forEach((b,j) => b.classList.toggle('active', i===j));
-  // Angebot-Tab: View bei Aufruf sofort rendern
-  if(i === 8) renderAngebotsView();
+  // Angebot-Tab: View bei Aufruf sofort rendern (jetzt Tab 6 statt 8)
+  if(i === 6) renderAngebotsView();
 }
 
 // ======================================================== TOGGLE
@@ -12523,7 +13004,7 @@ function renderWochenplan() {
 
     // Row color hint by type
     const rowBg = d.typ === 'so' ? 'background:rgba(88,166,255,0.04)'
-                : d.typ === 'ft' ? 'background:rgba(212,160,23,0.06)'
+                : d.typ === 'ft' ? 'background:rgba(21,101,192,0.06)'
                 : '';
 
     return `<tr style="${rowBg}">
@@ -13132,7 +13613,7 @@ function renderBWA() {
     chartItems.push(
       {label:'Bewachung — Fertigungslohn', val:R.bewachung.fertigungslohn, color:'#58a6ff'},
       {label:'Bewachung — LNK', val:R.bewachung.lnk, color:'#79c0ff'},
-      {label:'Bewachung — Objektk.+GK', val:(R.bewachung.objektkosten||0)+(R.bewachung.gk||0), color:'#d4a017'},
+      {label:'Bewachung — Objektk.+GK', val:(R.bewachung.objektkosten||0)+(R.bewachung.gk||0), color:'#1565C0'},
     );
   }
   if(S.diensttypen.revierdienst && R.revierdienst)
@@ -14921,6 +15402,127 @@ window.addEventListener('DOMContentLoaded', function() {
   }, 500);
 });
 
+// ══════════════════════════════════════════════════════════
+// KALKULATIONSTOOL - BRANDING & MODI
+// ══════════════════════════════════════════════════════════
+
+function initKalkTool() {
+  // User-Abteilung ermitteln
+  var department = '';
+  if (typeof currentUser !== 'undefined' && currentUser && currentUser.department) {
+    department = currentUser.department.toLowerCase();
+  }
+  
+  // Branding basierend auf Abteilung setzen
+  var brandIcon = document.getElementById('kalk-brand-icon');
+  var brandName = document.getElementById('kalk-brand-name');
+  var brandSub = document.getElementById('kalk-brand-sub');
+  
+  if (department.includes('security')) {
+    if (brandIcon) brandIcon.textContent = '🛡️';
+    if (brandName) brandName.textContent = 'Issel Security GmbH';
+    if (brandSub) brandSub.textContent = 'Sicherheitsdienstleistungen';
+  } else if (department.includes('facility')) {
+    if (brandIcon) brandIcon.textContent = '🏢';
+    if (brandName) brandName.textContent = 'Issel Facility GmbH';
+    if (brandSub) brandSub.textContent = 'Facility Management';
+  } else if (department.includes('k9')) {
+    if (brandIcon) brandIcon.textContent = '🐕';
+    if (brandName) brandName.textContent = 'Issel K9 Services';
+    if (brandSub) brandSub.textContent = 'Hundegestützte Sicherheit';
+  } else {
+    // Default: Issel Security
+    if (brandIcon) brandIcon.textContent = '🛡️';
+    if (brandName) brandName.textContent = 'Issel Security GmbH';
+    if (brandSub) brandSub.textContent = 'Angebotskalkulation';
+  }
+  
+  console.log('🎨 Kalkulationstool initialisiert:', brandName ? brandName.textContent : 'Unknown');
+}
+
+var kalkMode = 'svs'; // 'svs' oder 'simple'
+
+function setKalkMode(mode) {
+  kalkMode = mode;
+  
+  // Button-States updaten
+  var svsBtn = document.getElementById('mode-svs-btn');
+  var simpleBtn = document.getElementById('mode-simple-btn');
+  
+  // Simple Price Section
+  var simplePriceSection = document.getElementById('simple-price-section');
+  
+  if (mode === 'svs') {
+    if (svsBtn) {
+      svsBtn.style.background = '#1565C0';
+      svsBtn.style.color = '#fff';
+      svsBtn.classList.add('active');
+    }
+    if (simpleBtn) {
+      simpleBtn.style.background = 'transparent';
+      simpleBtn.style.color = '#1565C0';
+      simpleBtn.classList.remove('active');
+    }
+    
+    // Simple Price Section verstecken
+    if (simplePriceSection) simplePriceSection.style.display = 'none';
+    
+    // SVS-Tabs zeigen
+    var tabs = [1, 2, 3, 4]; // Bewachung SVS, Schichten, Revierdienst, Sicherheitstechnik
+    tabs.forEach(function(i) {
+      var tab = document.getElementById('tabnav-' + i);
+      if (tab) tab.style.display = '';
+    });
+    
+    console.log('📊 Modus: SVS-Kalkulation');
+    
+  } else {
+    // Einfacher Modus
+    if (svsBtn) {
+      svsBtn.style.background = 'transparent';
+      svsBtn.style.color = '#1565C0';
+      svsBtn.classList.remove('active');
+    }
+    if (simpleBtn) {
+      simpleBtn.style.background = '#1565C0';
+      simpleBtn.style.color = '#fff';
+      simpleBtn.classList.add('active');
+    }
+    
+    // Simple Price Section zeigen
+    if (simplePriceSection) simplePriceSection.style.display = 'block';
+    
+    // SVS-Tabs verstecken
+    var tabs = [1, 2, 3, 4];
+    tabs.forEach(function(i) {
+      var tab = document.getElementById('tabnav-' + i);
+      if (tab) tab.style.display = 'none';
+    });
+    
+    console.log('💰 Modus: Einfache Preise');
+  }
+}
+
+// Einfache Preis-Kalkulation
+function calcSimple() {
+  var monthlyPrice = parseFloat(document.getElementById('simple-price-monthly').value) || 0;
+  var months = parseInt(document.getElementById('f-vlz').value) || 12;
+  var totalPrice = monthlyPrice * months;
+  
+  document.getElementById('simple-display-monthly').textContent = monthlyPrice.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('simple-display-months').textContent = months + ' Monate';
+  document.getElementById('simple-display-total').textContent = totalPrice.toFixed(2).replace('.', ',') + ' €';
+}
+
+function calcSimpleFromHourly() {
+  var hourlyPrice = parseFloat(document.getElementById('simple-price-hourly').value) || 0;
+  var hoursPerMonth = parseFloat(document.getElementById('simple-hours-monthly').value) || 160;
+  var monthlyPrice = hourlyPrice * hoursPerMonth;
+  
+  document.getElementById('simple-price-monthly').value = monthlyPrice.toFixed(2);
+  calcSimple();
+}
+
 // KALKULATIONS-MODAL
 function openKalkulation(contactId) {
   // Kontakt aus DB holen
@@ -14934,6 +15536,9 @@ function openKalkulation(contactId) {
   // Modal öffnen
   document.getElementById('kalk-modal').style.display = 'block';
   document.body.style.overflow = 'hidden';
+  
+  // Kalkulationstool initialisieren (Branding + Abteilung)
+  initKalkTool();
   
   // Kontaktdaten ins Tool eintragen
   setTimeout(function() {
