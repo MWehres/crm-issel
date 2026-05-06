@@ -17,6 +17,10 @@
 <!-- Leaflet.js – Kartenbibliothek (Open Source, kein API-Key) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet.markercluster – Performance-Optimierung für viele Marker -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
 /* ── LEAFLET ISOLATION: verhindert dass Leaflet-CSS globale SVG/DOM-Elemente beeinflusst ── */
 /* Alle Leaflet-Positionen nur innerhalb echter Map-Container */
@@ -9409,6 +9413,60 @@ function toggleNoAddrInfo() {
   if (el) el.style.display = skNoAddrOpen ? 'block' : 'none';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   PERFORMANCE-OPTIMIERTE STANDORTKARTE (Batch-Geocoding + Clustering)
+══════════════════════════════════════════════════════════════ */
+
+// Globale Variablen für Performance-Features
+let skMarkerCluster = null;     // Leaflet.markercluster Layer
+let skAbortController = null;   // AbortController für Geocoding-Abbruch
+
+/* Batch-Geocoding: Verarbeitet mehrere Adressen parallel */
+async function skBatchGeocode(contacts, batchSize = 10, onProgress = null) {
+  const results = [];
+  const totalBatches = Math.ceil(contacts.length / batchSize);
+  
+  for (let i = 0; i < contacts.length; i += batchSize) {
+    // Abbruch-Prüfung
+    if (skAbortController?.signal.aborted) {
+      throw new Error('Geocoding abgebrochen');
+    }
+    
+    const batch = contacts.slice(i, i + batchSize);
+    const currentBatch = Math.floor(i / batchSize) + 1;
+    
+    // Parallel geocodieren (max 10 gleichzeitig)
+    const batchPromises = batch.map(async (c) => {
+      // Bereits gecachte Koordinaten überspringen
+      const hasCached = (c.lat && c.lng) || (norm((c.street||'') + ',' + (c.city||'')) in skGeoCache);
+      
+      if (!hasCached) {
+        // Nur bei neuen Adressen warten (OSM-freundlich)
+        await new Promise(r => setTimeout(r, 100));
+      }
+      
+      const coords = await skGeocode(c);
+      return { contact: c, coords };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+    
+    // Progress-Callback
+    if (onProgress) {
+      onProgress({
+        current: Math.min(i + batchSize, contacts.length),
+        total: contacts.length,
+        batch: currentBatch,
+        totalBatches,
+        percentage: Math.round((Math.min(i + batchSize, contacts.length) / contacts.length) * 100)
+      });
+    }
+  }
+  
+  return results;
+}
+
 /* Hauptfunktion: Karte initialisieren & alle Kontakte geocodieren */
 async function renderStandortkarte() {
   const filters = skGetFilters();
@@ -9421,9 +9479,6 @@ async function renderStandortkarte() {
   const filtered = withAddr.filter(c => skMatchesFilter(c, filters));
 
   // ── Gespeicherte Koordinaten in den Cache laden ──────────
-  // Wenn ein Kollege bereits geocodiert hat, liegen lat/lng auf dem
-  // Kontakt-Objekt (per Sync übertragen). Cache vorab befüllen
-  // damit kein erneuter Geocoding-Request nötig ist.
   filtered.forEach(c => {
     if (c.lat && c.lng) {
       const key = norm((c.street||'') + ',' + (c.city||''));
@@ -9431,7 +9486,7 @@ async function renderStandortkarte() {
     }
   });
 
-  // Globale Liste zurücksetzen – wird im Loop neu aufgebaut
+  // Globale Liste zurücksetzen
   skAllGeocodedContacts = [];
 
   // Badge-Counter & Ohne-Adresse-Info
@@ -9441,15 +9496,21 @@ async function renderStandortkarte() {
   if (noAddrBadge) noAddrBadge.textContent = `${withoutAddr.length} ohne Adresse`;
   if (noAddrList)  noAddrList.textContent  = withoutAddr.map(c => c.company).join(' · ');
 
-  // ── Lade-Anzeige in der Sidebar ──
+  // ── Lade-Anzeige mit Progress Bar in der Sidebar ──
   const listEl = document.getElementById('sk-list');
   if (listEl) listEl.innerHTML = `
     <div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">
-      <div style="margin-bottom:10px">
-        <span class="spin" style="width:18px;height:18px;border-width:2.5px;display:inline-block"></span>
+      <div style="margin-bottom:14px">
+        <span class="spin" style="width:20px;height:20px;border-width:2.5px;display:inline-block"></span>
       </div>
-      Adressen werden geocodiert…<br>
-      <span style="font-size:11px">(${filtered.length} Kontakte)</span>
+      <div style="font-weight:600;margin-bottom:8px;color:var(--navy)">Adressen werden geocodiert…</div>
+      <div id="sk-progress-text" style="font-size:12px;margin-bottom:10px">0 / ${filtered.length}</div>
+      <div style="width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:10px">
+        <div id="sk-progress-bar" style="width:0%;height:100%;background:var(--accent);transition:width 0.3s"></div>
+      </div>
+      <button onclick="skAbortGeocode()" style="font-size:11px;padding:4px 10px;background:var(--red-light);color:var(--red);border:1px solid var(--red);border-radius:6px;cursor:pointer">
+        Abbrechen
+      </button>
     </div>`;
   if (countBadge) countBadge.textContent = `${filtered.length} werden geladen…`;
 
@@ -9461,86 +9522,135 @@ async function renderStandortkarte() {
       maxZoom: 19,
     }).addTo(skMap);
 
+    // ── Marker Cluster initialisieren (gruppiert nahe Marker) ──
+    skMarkerCluster = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 15,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="
+            width:40px;height:40px;
+            background:var(--accent);
+            color:white;
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            font-weight:700;font-size:14px;
+            box-shadow:0 4px 12px rgba(21,101,192,.35);
+            border:3px solid white">
+            ${count}
+          </div>`,
+          className: '',
+          iconSize: [40, 40]
+        });
+      }
+    });
+    skMap.addLayer(skMarkerCluster);
+
     // ── Sidebar bei jeder Karten-Bewegung aktualisieren ──
     skMap.on('moveend', skUpdateListFromBounds);
     skMap.on('zoomend', skUpdateListFromBounds);
   }
 
-  // Alle alten Marker entfernen
-  Object.values(skMarkers).forEach(m => skMap.removeLayer(m));
+  // Cluster leeren (alte Marker entfernen)
+  if (skMarkerCluster) {
+    skMarkerCluster.clearLayers();
+  }
   skMarkers = {};
 
   if (!filtered.length) {
-    skRenderList([], []);
+    skRenderList([]);
     if (countBadge) countBadge.textContent = '0 angezeigt';
     return;
   }
 
-  // ── Geocoding + Marker setzen ──
-  const bounds = [];
-  const geocodedContacts = []; // nur erfolgreich geocodierte für die Liste
+  // ── AbortController für Abbruch-Button ──
+  skAbortController = new AbortController();
 
+  // ── Batch-Geocoding starten ──
+  const bounds = [];
+  const geocodedContacts = [];
   const _loopCfg = getDeptConfig();
-  for (const c of filtered) {
-    // Kein Delay wenn Koordinaten bereits gespeichert sind
-    const hasCachedCoords = (c.lat && c.lng) ||
-      (norm((c.street||'') + ',' + (c.city||'')) in skGeoCache);
-    if (!hasCachedCoords) {
-      await new Promise(r => setTimeout(r, 600)); // 600ms = OSM-freundlich
+  
+  try {
+    const results = await skBatchGeocode(filtered, 10, (progress) => {
+      // Progress Bar aktualisieren
+      const progressBar = document.getElementById('sk-progress-bar');
+      const progressText = document.getElementById('sk-progress-text');
+      if (progressBar) progressBar.style.width = progress.percentage + '%';
+      if (progressText) progressText.textContent = `${progress.current} / ${progress.total} (${progress.percentage}%)`;
+      if (countBadge) countBadge.textContent = `${progress.current} / ${progress.total} geladen…`;
+    });
+
+    // Marker erstellen (batch-weise)
+    for (const { contact: c, coords } of results) {
+      if (!coords) continue;
+
+      bounds.push([coords.lat, coords.lng]);
+      geocodedContacts.push(c);
+
+      const deals = DB.deals.filter(d => d.contactId === c.id && !['won','lost'].includes(d.stage));
+      const dealInfo = deals.length
+        ? `<div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">💼 ${deals.length} offene${deals.length>1?'r':''} Deal${deals.length>1?'s':''}</div>`
+        : '';
+
+      const marker = L.marker([coords.lat, coords.lng], { icon: skMarkerIcon(c, _loopCfg) })
+        .bindPopup(`
+          <div class="map-popup-inner" style="min-width:200px">
+            <strong>${esc(c.company)}</strong>
+            <span>${esc(c.street)}, ${esc(c.city)}</span>
+            ${c.firstname||c.lastname ? `<span style="display:block;margin-top:3px">👤 ${esc(c.firstname)} ${esc(c.lastname)}</span>` : ''}
+            ${c.phone ? `<span style="display:block">📞 ${esc(c.phone)}</span>` : ''}
+            <span style="display:flex;align-items:center;gap:6px;margin-top:6px">
+              <span class="badge ${SK_STATUS_BADGE[c.status]||'badge-gray'}" style="font-size:10px">${esc(c.status)}</span>
+            </span>
+            ${dealInfo}
+            <div style="margin-top:8px">
+              <a href="#" onclick="event.preventDefault();skMap._popup?.close?.();showAkte('${c.id}')"
+                 style="font-size:12px;font-weight:600;color:var(--accent);text-decoration:none">
+                → Kontaktakte öffnen
+              </a>
+            </div>
+          </div>`);
+
+      skMarkers[c.id] = marker;
+      skMarkerCluster.addLayer(marker);
     }
 
-    const coords = await skGeocode(c);
-    if (!coords) continue;
-
-    bounds.push([coords.lat, coords.lng]);
-    geocodedContacts.push(c);
-
-    const deals = DB.deals.filter(d => d.contactId === c.id && !['won','lost'].includes(d.stage));
-    const dealInfo = deals.length
-      ? `<div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">💼 ${deals.length} offene${deals.length>1?'r':''} Deal${deals.length>1?'s':''}</div>`
-      : '';
-
-    const marker = L.marker([coords.lat, coords.lng], { icon: skMarkerIcon(c, _loopCfg) })
-      .addTo(skMap)
-      .bindPopup(`
-        <div class="map-popup-inner" style="min-width:200px">
-          <strong>${esc(c.company)}</strong>
-          <span>${esc(c.street)}, ${esc(c.city)}</span>
-          ${c.firstname||c.lastname ? `<span style="display:block;margin-top:3px">👤 ${esc(c.firstname)} ${esc(c.lastname)}</span>` : ''}
-          ${c.phone ? `<span style="display:block">📞 ${esc(c.phone)}</span>` : ''}
-          <span style="display:flex;align-items:center;gap:6px;margin-top:6px">
-            <span class="badge ${SK_STATUS_BADGE[c.status]||'badge-gray'}" style="font-size:10px">${esc(c.status)}</span>
-          </span>
-          ${dealInfo}
-          <div style="margin-top:8px">
-            <a href="#" onclick="event.preventDefault();skMap._popup?.close?.();showAkte('${c.id}')"
-               style="font-size:12px;font-weight:600;color:var(--accent);text-decoration:none">
-              → Kontaktakte öffnen
-            </a>
-          </div>
-        </div>`);
-
-    skMarkers[c.id] = marker;
-    skAllGeocodedContacts = [...geocodedContacts];
+    skAllGeocodedContacts = geocodedContacts;
     skUpdateListFromBounds();
-    if (countBadge) countBadge.textContent =
-      `${geocodedContacts.length} / ${filtered.length} geladen`;
+    if (countBadge) countBadge.textContent = `${geocodedContacts.length} angezeigt`;
+
+    // Karte auf alle Marker zentrieren
+    if (bounds.length > 0) {
+      skMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+    }
+
+    // Leaflet-Größe korrigieren + Bounds-Filter nach fitBounds-Animation
+    setTimeout(() => { skMap.invalidateSize(); }, 100);
+    setTimeout(() => { skUpdateListFromBounds(); }, 650);
+
+  } catch (err) {
+    if (err.message === 'Geocoding abgebrochen') {
+      toast('Geocoding abgebrochen', 'info');
+      if (countBadge) countBadge.textContent = `${geocodedContacts.length} geladen (abgebrochen)`;
+    } else {
+      console.error('Geocoding-Fehler:', err);
+      toast('Fehler beim Geocoding: ' + err.message, 'error');
+    }
+    skRenderList(geocodedContacts);
   }
+}
 
-  skAllGeocodedContacts = geocodedContacts;
-  skUpdateListFromBounds();
-  if (countBadge) countBadge.textContent = `${geocodedContacts.length} angezeigt`;
-
-  // Karte auf alle Marker zentrieren
-  if (bounds.length > 0) {
-    skMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+/* Geocoding abbrechen */
+function skAbortGeocode() {
+  if (skAbortController) {
+    skAbortController.abort();
+    skAbortController = null;
   }
-
-  // Leaflet-Größe korrigieren + Bounds-Filter nach fitBounds-Animation
-  // fitBounds animiert die Karte – moveend feuert erst am Ende der Animation.
-  // Wir warten 600ms damit die Animation sicher abgeschlossen ist.
-  setTimeout(() => { skMap.invalidateSize(); }, 100);
-  setTimeout(() => { skUpdateListFromBounds(); }, 650);
 }
 
 
