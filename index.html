@@ -7981,11 +7981,11 @@ function buildPlaybookShell() {
               <svg class="cs-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/></svg>
               <input type="text" class="cs-input" id="qr-contact-search" placeholder="Kontakt suchen..." autocomplete="off"
                 style="padding-left:30px"
-                oninput="csFilter('qr-contact-search','qr-contact-dropdown','qr-contact-hidden');qrSetContact(document.getElementById('qr-contact-hidden').value)"
+                oninput="csFilter('qr-contact-search','qr-contact-dropdown','qr-contact-hidden')"
                 onfocus="csFilter('qr-contact-search','qr-contact-dropdown','qr-contact-hidden')"
                 onkeydown="csKeyNav(event,'qr-contact-dropdown','qr-contact-hidden','qr-contact-search',function(id){qrSetContact(id)})">
               <div class="cs-dropdown" id="qr-contact-dropdown"></div>
-              <input type="hidden" id="qr-contact-hidden">
+              <input type="hidden" id="qr-contact-hidden" onchange="qrSetContact(this.value)">
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;min-width:180px">
