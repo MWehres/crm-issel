@@ -8755,22 +8755,17 @@ function pbSaveToContact(isPositive) {
   // PHASE 4: VALIDIERUNG
   // ══════════════════════════════════════════════════════════════
   
-  // Pflichtfeld: Kontakt
-  if (!contactId) {
+  // Pflichtfeld: Kontakt (nur wenn wirklich keiner gesetzt ist)
+  if (!contactId && !pbContactId) {
     toast('⚠️ Bitte wähle einen Kontakt aus', 'warning');
-    document.getElementById('pb-save-contact')?.focus();
     return;
   }
   
-  // Pflichtfeld: Betreff
-  if (!subject || subject.length < 3) {
-    toast('⚠️ Betreff muss mindestens 3 Zeichen haben', 'warning');
-    document.getElementById('pb-save-subject')?.focus();
-    return;
-  }
+  // Betreff-Validierung nur wenn Feld leer ist (Fallback existiert)
+  const actualSubject = subject || (isPositive ? 'Abschluss' : 'Gesprächsprotokoll');
   
-  // Warnung: Keine Details
-  if (!details.trim()) {
+  // Warnung: Keine Details (nur wenn wirklich leer)
+  if (!details.trim() && details !== pbBuildNotes(isPositive)) {
     const proceed = confirm('⚠️ Keine Details erfasst. Trotzdem speichern?');
     if (!proceed) return;
   }
