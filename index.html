@@ -2718,6 +2718,10 @@ input[type="checkbox"]:hover {
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg>
       Vertriebsleitfaden
     </div>
+    <div class="nav-item" onclick="showPage('linkedin')" id="nav-linkedin">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" stroke-width="2" stroke-linecap="round"/><rect x="2" y="9" width="4" height="12" stroke-width="2"/><circle cx="4" cy="4" r="2" stroke-width="2"/></svg>
+      LinkedIn Outreach
+    </div>
     <div class="nav-section">Analyse</div>
     <div class="nav-item" onclick="showPage('standortkarte')">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 10c0 6-8 13-8 13s-8-7-8-13a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -3122,8 +3126,200 @@ input[type="checkbox"]:hover {
     </div>
 
     <!-- ══ PLAYBOOK ══ -->
-    <div class="page" id="page-playbook">
-      <div id="playbook-content"></div>
+    <div class="page" id="page-playbook">      <div id="playbook-content"></div>
+    </div>
+
+    <!-- ══ LINKEDIN OUTREACH ══ -->
+    <div class="page" id="page-linkedin">
+      <div id="li-root" style="display:grid;grid-template-columns:340px 1fr;gap:0;min-height:calc(100vh - 120px)">
+
+        <!-- LEFT: Eingabe -->
+        <div style="background:var(--card);border-right:1px solid var(--border);padding:24px 20px 40px;overflow-y:auto;display:flex;flex-direction:column">
+          <div style="font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px">Profil-Daten</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:18px;line-height:1.5">Kontakt aus CRM wählen oder manuell eingeben – 5 Varianten pro Format.</div>
+
+          <!-- CRM-Kontakt Auswahl -->
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Kontakt aus CRM laden</label>
+            <select id="li-contact-sel" onchange="liSelectContact(this.value)" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+              <option value="">— CRM-Kontakt wählen —</option>
+            </select>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin:4px 0 16px;position:relative;text-align:center">
+            <span style="position:relative;background:var(--card);padding:0 10px;font-size:11px;color:var(--text3);top:-1px">oder manuell</span>
+          </div>
+
+          <!-- Vorname / Nachname -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Vorname <span style="color:var(--red)">*</span></label>
+              <input type="text" id="li-vn" placeholder="Thomas" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Nachname</label>
+              <input type="text" id="li-nn" placeholder="Optional" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Unternehmen <span style="color:var(--red)">*</span></label>
+            <input type="text" id="li-un" placeholder="Maier Logistics GmbH" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Position / Funktion <span style="color:var(--red)">*</span></label>
+            <input type="text" id="li-pos" placeholder="Facility Manager" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Branche <span style="color:var(--red)">*</span></label>
+            <select id="li-br" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238A9AB0%22 stroke-width=%222%22%3E%3Cpath d=%22m6 9 6 6 6-6%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+              <option value="">— Branche wählen —</option>
+              <option value="Logistik">Logistik &amp; Transport</option>
+              <option value="Industrie">Industrie &amp; Produktion</option>
+              <option value="Immobilien">Immobilien &amp; Verwaltung</option>
+              <option value="Handel">Handel &amp; Retail</option>
+              <option value="Gesundheitswesen">Gesundheitswesen</option>
+              <option value="öffentlicher Verwaltung">Öffentliche Hand</option>
+              <option value="Finanzdienstleistung">Finanzdienstleistungen</option>
+              <option value="Automobilbranche">Automobilbranche</option>
+              <option value="Energie &amp; Versorgung">Energie &amp; Versorgung</option>
+              <option value="Technologie">Technologie &amp; IT</option>
+              <option value="Bau &amp; Infrastruktur">Bau &amp; Infrastruktur</option>
+              <option value="Lebensmittelbranche">Lebensmittelbranche</option>
+            </select>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin:8px 0 14px"></div>
+
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Anlass / Besonderheit <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(optional)</span></label>
+            <textarea id="li-al" placeholder="z.B. Neues Lager in NRW eröffnet · LinkedIn-Post zu FM-Themen gesehen · Gemeinsamer Kontakt …" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;resize:vertical;min-height:68px;line-height:1.55" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin:8px 0 16px;position:relative;text-align:center">
+            <span style="position:relative;background:var(--card);padding:0 10px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);top:-1px">🔍 Recherche-Variante</span>
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Was habe ich gefunden? <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(Kernaktivität / Besonderheit)</span></label>
+            <textarea id="li-kern" placeholder="z.B. Gleisbau mit Sperrpausen – Maschinen stehen nachts auf wechselnden Baustellen, enge Zeitfenster…" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;resize:vertical;min-height:68px;line-height:1.55" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Die eine konkrete Frage</label>
+            <input type="text" id="li-frage" placeholder="z.B. Wer übernimmt die Bewachung wenn kurzfristig Bedarf entsteht?" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;background:var(--card);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">Wenn befüllt: wird als 6. Variante generiert.</div>
+          </div>
+
+          <button onclick="liGenerate()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:11px 20px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;letter-spacing:.04em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s" onmouseover="this.style.background='#0d52a3'" onmouseout="this.style.background='var(--accent)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Texte generieren
+          </button>
+
+          <!-- Im CRM speichern -->
+          <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border-radius:7px;border:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Im CRM protokollieren</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.5">Speichert die verwendete Nachricht als Aktivität am CRM-Kontakt und setzt „Letzter Kontakt" auf heute.</div>
+            <button id="li-save-btn" onclick="liSaveActivity()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:7px;padding:9px 14px;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:6px" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='var(--green)'">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Aktivität im CRM speichern
+            </button>
+          </div>
+
+          <div style="margin-top:12px;background:var(--accent-light);border:1px solid var(--accent);border-radius:7px;padding:10px 12px;font-size:11.5px;color:var(--text2);line-height:1.55">
+            <strong style="color:var(--accent)">Limits:</strong> Verbinden max. <strong>300 Zeichen</strong> · InMail bis ~1.900 Zeichen
+          </div>
+        </div>
+
+        <!-- RIGHT: Output -->
+        <div style="padding:24px 28px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">
+
+          <!-- Tabs -->
+          <div style="display:flex;gap:0;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:3px;width:fit-content">
+            <button class="li-tb active" data-tab="v" onclick="liSwitchTab('v',this)" style="padding:7px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:none;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:7px;transition:all .15s">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+              Verbinden
+            </button>
+            <button class="li-tb" data-tab="i" onclick="liSwitchTab('i',this)" style="padding:7px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:none;color:var(--text3);border:none;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:7px;transition:all .15s">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              InMail
+            </button>
+          </div>
+
+          <!-- VERBINDEN PANEL -->
+          <div class="li-tp active" id="li-tp-v" style="display:flex;flex-direction:column;gap:14px">
+            <div id="li-ph-v" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:14px;text-align:center;color:var(--text3)">
+              <div style="width:50px;height:50px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:.5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+              </div>
+              <p style="font-size:13px;max-width:240px;line-height:1.6">Profil-Daten eingeben und auf <strong style="color:var(--accent)">Texte generieren</strong> klicken.</p>
+            </div>
+            <div class="card" id="li-card-v" style="display:none">
+              <div class="card-header">
+                <div class="card-title">Verbinden-Nachricht</div>
+                <div style="display:flex;align-items:center;gap:7px;margin-left:auto">
+                  <div id="li-d-v" style="display:flex;gap:5px;align-items:center;margin-right:3px"></div>
+                  <button onclick="liCycle('v',-1)" class="btn btn-secondary btn-sm" style="padding:4px 9px">&#8592;</button>
+                  <button onclick="liCycle('v', 1)" class="btn btn-secondary btn-sm" style="padding:4px 9px">&#8594;</button>
+                  <button id="li-cp-v" onclick="liCopy('v')" class="btn btn-secondary btn-sm">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Kopieren
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div id="li-t-v" contenteditable="true" spellcheck="false" oninput="liUpdateBar(this.textContent.length)" style="font-size:14px;line-height:1.78;color:var(--text);white-space:pre-wrap;min-height:48px;transition:opacity .12s;outline:none;cursor:text;border-radius:4px;padding:2px 0" onfocus="this.style.background='rgba(21,101,192,0.04)'" onblur="this.style.background=''"></div>
+                <div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">
+                  <div style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden"><div id="li-cf" style="height:100%;border-radius:2px;transition:width .28s,background .28s"></div></div>
+                  <div id="li-cn" style="font-size:11px;font-weight:600;min-width:62px;text-align:right;color:var(--text3)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- INMAIL PANEL -->
+          <div class="li-tp" id="li-tp-i" style="display:none;flex-direction:column;gap:14px">
+            <div id="li-ph-i" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:14px;text-align:center;color:var(--text3)">
+              <div style="width:50px;height:50px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:.5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <p style="font-size:13px;max-width:240px;line-height:1.6">Profil-Daten eingeben und auf <strong style="color:var(--accent)">Texte generieren</strong> klicken.</p>
+            </div>
+            <div class="card" id="li-card-subj" style="display:none">
+              <div class="card-header">
+                <div class="card-title">Betreff</div>
+                <button id="li-cp-subj" onclick="liCopy('subj')" class="btn btn-secondary btn-sm" style="margin-left:auto">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Kopieren
+                </button>
+              </div>
+              <div class="card-body">
+                <div id="li-t-subj" contenteditable="true" spellcheck="false" style="font-size:15px;font-weight:600;color:var(--text);line-height:1.5;transition:opacity .12s;outline:none;cursor:text;border-radius:4px;padding:2px 0" onfocus="this.style.background='rgba(21,101,192,0.04)'" onblur="this.style.background=''"></div>
+              </div>
+            </div>
+            <div class="card" id="li-card-i" style="display:none">
+              <div class="card-header">
+                <div class="card-title">InMail-Nachricht</div>
+                <div style="display:flex;align-items:center;gap:7px;margin-left:auto">
+                  <div id="li-d-i" style="display:flex;gap:5px;align-items:center;margin-right:3px"></div>
+                  <button onclick="liCycle('i',-1)" class="btn btn-secondary btn-sm" style="padding:4px 9px">&#8592;</button>
+                  <button onclick="liCycle('i', 1)" class="btn btn-secondary btn-sm" style="padding:4px 9px">&#8594;</button>
+                  <button id="li-cp-i" onclick="liCopy('i')" class="btn btn-secondary btn-sm">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Kopieren
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div id="li-t-i" contenteditable="true" spellcheck="false" style="font-size:14px;line-height:1.78;color:var(--text);white-space:pre-wrap;min-height:48px;transition:opacity .12s;outline:none;cursor:text;border-radius:4px;padding:2px 0" onfocus="this.style.background='rgba(21,101,192,0.04)'" onblur="this.style.background=''"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
 
   </div>
@@ -5018,12 +5214,13 @@ const pageTitles = {
   reports: 'Berichte & Druckansicht',
   playbook: 'Vertriebsleitfaden',
   akte: 'Kontaktakte',
-  standortkarte: 'Standortkarte'
+  standortkarte: 'Standortkarte',
+  linkedin: 'LinkedIn Outreach'
 };
 
 const topbarActions = {
   dashboard: '',
-  contacts:  '<button class="btn btn-secondary no-print btn-sm" onclick="exportContactsCSV()">&#8595; CSV</button>',
+  contacts:  '<button class="btn btn-secondary no-print btn-sm" onclick="exportContactsCSV()">&#8595; CSV</button> <button class="btn btn-secondary no-print btn-sm" onclick="exportLeadnotizCSV()" title="Export im Leadnotiz-Format für die Kaltakquise-Vorlage" style="border-color:var(--accent);color:var(--accent)">&#8595; Leadnotiz</button>',
   pipeline:  '',
   activities:'',
   tasks:     '',
@@ -5035,7 +5232,8 @@ const topbarActions = {
   reports:   '<button class="btn btn-secondary no-print" onclick="window.print()">&#128424; Drucken</button>',
   playbook:  '<button class="btn btn-secondary no-print btn-sm" onclick="pbReset()">&#8635; Neustart</button>',
   akte:      '<div id="akte-topbar-actions" style="display:flex;gap:8px"></div>',
-  standortkarte: ''
+  standortkarte: '',
+  linkedin:  '<button class="btn btn-secondary no-print btn-sm" onclick="liReset()">&#8635; Zurücksetzen</button>'
 };
 
 function showPage(name) {
@@ -5063,6 +5261,290 @@ function showPage(name) {
   if (name === 'kalender') renderKalender();
   if (name === 'radar') renderRadar();
   if (name === 'akte') {/* rendered by showAkte */}
+  if (name === 'linkedin') renderLinkedIn();
+}
+
+// ══════════════════════════════════════════════════════════
+// LINKEDIN OUTREACH MODULE
+// ══════════════════════════════════════════════════════════
+const LI = { vi:0, ii:0, vt:[], st:[], it:[], gen:false, contactId:null };
+
+const LI_VT = [
+  // V1 — Branchenbeobachtung als Aufhänger
+  "Hallo {vn}, ich betreue seit Jahren Unternehmen in {br} – und stoße dort immer wieder auf das gleiche ungelöste Thema: Wer ist eigentlich zuständig, wenn kein Dienstleister zuständig ist? Würde das gerne mit Ihnen besprechen.",
+  // V2 — Position ernst nehmen
+  "Hallo {vn}, als {pos} bei {un} liegt vermutlich einiges auf Ihrem Tisch, das eigentlich kein externer Dienstleister anfassen will. Genau dieser Graubereich ist unsere Spezialität. Kurzer Austausch?",
+  // V3 — Konkrete Beobachtung, keine Lösung
+  "Hallo {vn}, in {br} sehe ich oft das gleiche Muster: ab drei externen Dienstleistern fällt im Ausnahmefall immer etwas durch die Ritzen – und keiner fühlt sich zuständig. Ob das bei {un} auch so ist – reine Neugier. Vernetzt?",
+  // V4 — Ehrlich ohne Aufhänger
+  "Hallo {vn}, ich schreibe ohne perfekten Aufhänger: Issel unterscheidet sich von klassischen Sicherheitsunternehmen nicht im Angebot, sondern in dem, was wir zwischen den Aufträgen tun. Das erklärt sich besser im Gespräch. Vernetzt?",
+  // V5 — Kurz und unverblümt
+  "Hallo {vn}, ich bin auf {un} aufmerksam geworden. Wir übernehmen für Unternehmen in {br} auch das, wofür sich kein anderer zuständig fühlt – Security, Facility, Reinigung aus einer Hand. Lohnt sich ein kurzer Austausch?"
+];
+
+const LI_IS = [
+  "Eine Beobachtung aus dem {br}-Umfeld – {un}",
+  "Kurze Frage an Sie als {pos} bei {un}",
+  "{vn}, eine direkte Frage zu {un}",
+  "{un} – eine ehrliche Einschätzung",
+  "Kurze Idee für {un}"
+];
+
+function liIB(idx, v) {
+  const a = v.al ? v.al + '\n\nDas hat mich dazu gebracht, Ihnen kurz zu schreiben.\n' : '';
+  const tpls = [
+
+    // I1 — Branchenbeobachtung, keine Lösung im Mittelteil
+    'Hallo {vn},\n\nich betreue seit einigen Jahren Unternehmen in {br} und stoße dabei immer wieder auf das gleiche Thema: Je mehr externe Dienstleister koordiniert werden müssen, desto mehr Energie geht in Abstimmung – nicht ins Kerngeschäft.\n\nDas Interessante daran: Es ist selten ein einzelner Dienstleister, der das Problem macht. Es ist die Summe. Bewachung, Facility, Reinigung – und bei Ausnahmen oder Grenzfällen zeigt jeder auf den anderen.\n\nWir bei Issel haben uns darauf spezialisiert, genau diesen Graubereich zu übernehmen. Nicht als Versprechen im Angebot – sondern als gelebte Praxis. Auch für Aufgaben, die außerhalb des Leistungsverzeichnisses liegen.\n\nOb das bei {un} ein Thema ist, weiß ich ehrlich gesagt nicht. Deshalb frage ich direkt: Gibt es aktuell eine Situation, wo ein Dienstleister "eigentlich nicht zuständig" ist, aber jemand müsste?\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW',
+
+    // I2 — Position als Einstieg, Graubereich konkret
+    'Hallo {vn},\n\nich schreibe Ihnen, weil ich verstehen möchte, wie das bei {un} organisiert ist.\n\nAls {pos} haben Sie vermutlich einen guten Überblick, welche externen Dienstleister für Objekte und Abläufe zuständig sind – und auch, was dabei gelegentlich zwischen den Stühlen landet.\n\nWir bei Issel machen seit Jahren die gleiche Beobachtung: Der Mehrwert für unsere Kunden entsteht nicht in den 80 %, die im Vertrag stehen – sondern in den 20 %, für die sich kein Dienstleister zuständig fühlt. Reinigung, die nicht kommt. Facility-Fragen, die niemand beantwortet. Sicherheitsthemen, die durch die Ritzen fallen.\n\nIch würde gerne verstehen, ob das bei {un} ein offenes Thema ist – oder ob das dort gut gelöst ist. Beides ist eine ehrliche Antwort.\n\nFalls ersteres: 15 Minuten würden reichen.\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW',
+
+    // I3 — Direkte Frage statt Pitch
+    'Hallo {vn},\n\nkeine lange Einleitung: ich habe eine konkrete Frage.\n\nWie viele externe Dienstleister koordiniert {un} aktuell rund um Objekte und laufenden Betrieb?\n\nIch frage, weil wir bei Issel immer wieder feststellen: Ab einer bestimmten Anzahl entsteht ein stiller Mehraufwand, den niemand in einem Angebot ausweist – aber jeder kennt. Klärungsgespräche, die an der falschen Stelle landen. Situationen, für die sich formal niemand zuständig fühlt.\n\nWir haben uns darauf spezialisiert, genau dort einzuspringen – mit Security, Facility und Reinigung aus einer Hand. Nicht weil das klingt gut, sondern weil es in der Praxis funktioniert.\n\nFalls das bei {un} ein Thema ist: 15 Minuten, und wir wissen beide, ob wir passen – oder eben nicht.\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW',
+
+    // I4 — Ehrlich, kein künstlicher Aufhänger
+    'Hallo {vn},\n\nich werde direkt: Dieser Erstkontakt hat keinen perfekten Aufhänger. Ich kenne {un} bisher nur von außen.\n\nWas ich aus dem {br}-Umfeld kenne: Koordinationsaufwand rund um externe Dienstleistungen ist selten das lauteste Problem – aber oft das teuerste. Weil er in keiner Kalkulation auftaucht und trotzdem täglich Zeit kostet.\n\nIssel Security Group ist kein klassischer Sicherheitsdienst. Wir übernehmen auch das, was bei anderen im Graubereich liegt – Security, Facility und Reinigung über unsere Group aus einer Hand. Ein Ansprechpartner. Einer, der auch dann da ist, wenn es nicht im Vertrag steht.\n\nOb das für {un} relevant ist, lässt sich in 15 Minuten klären. Hätten Sie die Gelegenheit?\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW',
+
+    // I5 — Anlass-getrieben (stark wenn Anlass befüllt, sonst allgemein)
+    'Hallo {vn},\n\n' + (v.al ? a + '\n' : 'ich bin auf {un} aufmerksam geworden und wollte direkt nachfragen.\n\n') + 'Bei Issel Security Group betreuen wir Unternehmen in {br} als operativen Partner rund ums Objekt – nicht nur mit Bewachung, sondern auch dort, wo Facility- und Reinigungsthemen nicht warten können. Wir springen ein und übernehmen, wofür sich kein anderer zuständig fühlt.\n\nKein Pitch: Ich möchte einfach verstehen, ob das ein Thema für {un} ist. Hätten Sie 15 Minuten?\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW'
+  ];
+  return tpls[idx];
+}
+
+function liF(tpl, v) {
+  return tpl.replace(/{vn}/g,v.vn).replace(/{un}/g,v.un).replace(/{pos}/g,v.pos).replace(/{br}/g,v.br).replace(/{al}/g,v.al).replace(/{kern}/g,v.kern||'').replace(/{frage}/g,v.frage||'');
+}
+
+function renderLinkedIn() {
+  const sel = document.getElementById('li-contact-sel');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— CRM-Kontakt wählen —</option>';
+  [...DB.contacts]
+    .sort((a,b) => (a.company||'').localeCompare(b.company||''))
+    .forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      const name = [c.firstname, c.lastname].filter(Boolean).join(' ');
+      opt.textContent = c.company + (name ? ' – ' + name : '');
+      sel.appendChild(opt);
+    });
+  // Re-select previously chosen contact if still valid
+  if (LI.contactId) sel.value = LI.contactId;
+}
+
+function liSelectContact(contactId) {
+  LI.contactId = contactId || null;
+  if (!contactId) return;
+  const c = DB.contacts.find(x => x.id === contactId);
+  if (!c) return;
+  document.getElementById('li-vn').value  = c.firstname || '';
+  document.getElementById('li-nn').value  = c.lastname  || '';
+  document.getElementById('li-un').value  = c.company   || '';
+  document.getElementById('li-pos').value = c.position  || '';
+  // Branche mappen: 1) exakter Treffer 2) Substring 3) CRM-Wert als eigene Option einfügen
+  const brSel = document.getElementById('li-br');
+  const crmInd = (c.industry || '').trim();
+  const ind = crmInd.toLowerCase();
+  let matched = false;
+  // 1. Exakter Treffer
+  for (let opt of brSel.options) {
+    if (opt.value && opt.value === crmInd) { brSel.value = opt.value; matched = true; break; }
+  }
+  // 2. Substring-Treffer
+  if (!matched) {
+    for (let opt of brSel.options) {
+      if (opt.value && ind && (ind.includes(opt.value.toLowerCase()) || opt.value.toLowerCase().includes(ind.substring(0,4)))) {
+        brSel.value = opt.value; matched = true; break;
+      }
+    }
+  }
+  // 3. Fallback: CRM-Branche als neue Option einfügen
+  if (!matched && crmInd) {
+    // Alten Fallback-Eintrag entfernen falls vorhanden
+    const old = brSel.querySelector('option[data-crm]');
+    if (old) old.remove();
+    const opt = document.createElement('option');
+    opt.value = crmInd;
+    opt.textContent = crmInd + ' (aus CRM)';
+    opt.dataset.crm = '1';
+    brSel.appendChild(opt);
+    brSel.value = crmInd;
+  }
+  document.getElementById('li-al').value = '';
+  toast('✓ ' + c.company + ' geladen', 'success');
+}
+
+function liGenerate() {
+  const vn  = document.getElementById('li-vn').value.trim();
+  const un  = document.getElementById('li-un').value.trim();
+  const pos = document.getElementById('li-pos').value.trim();
+  const br  = document.getElementById('li-br').value;
+  const al  = document.getElementById('li-al').value.trim();
+  const kern  = document.getElementById('li-kern')?.value.trim() || '';
+  const frage = document.getElementById('li-frage')?.value.trim() || '';
+  if (!vn || !un || !pos || !br) { toast('⚠️ Vorname, Unternehmen, Position und Branche ausfüllen', 'warning'); return; }
+  const v = { vn, un, pos, br, al, kern, frage };
+  LI.vt = LI_VT.map(t => liF(t, v));
+  LI.st = LI_IS.map(t => liF(t, v));
+  LI.it = Array.from({length:5}, (_,i) => liF(liIB(i, v), v));
+  // 6. Recherche-Variante – nur wenn Kern-Feld befüllt
+  LI.hasResearch = !!kern;
+  if (kern) {
+    LI.vt.push(liF(LI_VT_R, v));
+    LI.st.push(liF(LI_IS_R, v));
+    LI.it.push(liF(liIBR(v), v));
+  }
+  LI.vi = 0; LI.ii = 0; LI.gen = true;
+  liRenderV(); liRenderI();
+}
+
+// ── RECHERCHE-TEMPLATES (Variante 6) ─────
+const LI_VT_R = "Hallo {vn}, ich habe mich kurz mit {un} beschäftigt – und eine Frage, die wirklich nur für Sie als {pos} gilt. Wenn Sie neugierig sind: vernetzt?";
+
+const LI_IS_R = "Eine konkrete Frage zu {un} – speziell für Sie als {pos}";
+
+function liIBR(v) {
+  return 'Hallo {vn},\n\nich habe mich ein wenig mit {un} beschäftigt – und eine direkte Frage an Sie als {pos}.\n\n{kern}\n\n{frage}\n\nWir bei Issel machen genau das – nicht als Dienstleister, der auf Anforderung erscheint, sondern als einer, der in solchen Situationen mitdenkt und einspringt. Security, Facility und Reinigung aus einer Hand.\n\nFalls das ein offenes Thema ist: 15 Minuten würden reichen.\n\nBeste Grüße\nMarcel Wehres\nIssel Security Group | NRW';
+}
+
+function liResearchBadge(isActive) {
+  const n = LI.vt.length;
+  const isResearchVariant = LI.hasResearch && isActive === n - 1;
+  return isResearchVariant
+    ? '<span style="font-size:10px;font-weight:700;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;border-radius:5px;padding:2px 8px;margin-left:8px;letter-spacing:.04em">🔍 RECHERCHE</span>'
+    : '';
+}
+
+function liRenderV() {
+  document.getElementById('li-ph-v').style.display  = 'none';
+  document.getElementById('li-card-v').style.display = 'block';
+  const txt = LI.vt[LI.vi];
+  liSwap('li-t-v', txt);
+  liUpdateBar(txt.length);
+  liBuildDots('li-d-v', LI.vt.length, LI.vi, 'v');
+  // Recherche-Badge in Card-Title
+  const lbl = document.querySelector('#li-card-v .card-title');
+  if (lbl) lbl.innerHTML = 'Verbinden-Nachricht' + liResearchBadge(LI.vi);
+}
+
+function liRenderI() {
+  document.getElementById('li-ph-i').style.display      = 'none';
+  document.getElementById('li-card-subj').style.display  = 'block';
+  document.getElementById('li-card-i').style.display     = 'block';
+  liSwap('li-t-subj', LI.st[LI.ii]);
+  liSwap('li-t-i',    LI.it[LI.ii]);
+  liBuildDots('li-d-i', LI.it.length, LI.ii, 'i');
+  const lbl = document.querySelector('#li-card-i .card-title');
+  if (lbl) lbl.innerHTML = 'InMail-Nachricht' + liResearchBadge(LI.ii);
+}
+
+function liSwap(id, txt) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.opacity = '0';
+  setTimeout(() => { el.textContent = txt; el.style.transition = 'opacity .12s'; el.style.opacity = '1'; }, 90);
+}
+
+function liUpdateBar(len) {
+  const fill = document.getElementById('li-cf');
+  const num  = document.getElementById('li-cn');
+  if (!fill || !num) return;
+  fill.style.width      = Math.min(len/300*100, 100) + '%';
+  fill.style.background = len > 300 ? 'var(--red)' : len > 280 ? 'var(--orange)' : 'var(--green)';
+  num.textContent       = len + ' / 300';
+  num.style.color       = len > 300 ? 'var(--red)' : len > 280 ? 'var(--orange)' : 'var(--green)';
+}
+
+function liBuildDots(cid, n, active, type) {
+  const c = document.getElementById(cid);
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.style.cssText = 'width:7px;height:7px;border-radius:50%;cursor:pointer;transition:all .14s;border:1px solid ' + (i===active ? 'var(--accent)' : 'var(--border)') + ';background:' + (i===active ? 'var(--accent)' : 'var(--bg)');
+    d.onclick = () => {
+      if (type === 'v') { LI.vi = i; liRenderV(); }
+      else              { LI.ii = i; liRenderI(); }
+    };
+    c.appendChild(d);
+  }
+}
+
+function liCycle(type, dir) {
+  if (!LI.gen) return;
+  if (type === 'v') { LI.vi = (LI.vi + dir + LI.vt.length) % LI.vt.length; liRenderV(); }
+  else              { LI.ii = (LI.ii + dir + LI.it.length) % LI.it.length; liRenderI(); }
+}
+
+function liCopy(type) {
+  if (!LI.gen) return;
+  const domId = type === 'v' ? 'li-t-v' : type === 'i' ? 'li-t-i' : 'li-t-subj';
+  const btnId  = type === 'v' ? 'li-cp-v' : type === 'i' ? 'li-cp-i' : 'li-cp-subj';
+  const el = document.getElementById(domId);
+  const txt = el ? el.textContent : '';
+  if (!txt) return;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Kopiert';
+    btn.style.color = 'var(--green)'; btn.style.borderColor = 'var(--green)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2200);
+  });
+}
+
+function liSwitchTab(tab, btn) {
+  document.querySelectorAll('.li-tb').forEach(b => {
+    b.style.background = 'none'; b.style.color = 'var(--text3)';
+  });
+  btn.style.background = 'var(--accent)'; btn.style.color = '#fff';
+  ['v','i'].forEach(t => {
+    const tp = document.getElementById('li-tp-' + t);
+    if (tp) tp.style.display = t === tab ? 'flex' : 'none';
+  });
+}
+
+function liSaveActivity() {
+  if (!LI.gen) { toast('Bitte zuerst Texte generieren', 'warning'); return; }
+  const contactId = LI.contactId || document.getElementById('li-contact-sel')?.value;
+  if (!contactId) { toast('⚠️ Bitte einen CRM-Kontakt auswählen', 'warning'); return; }
+  const activeTab = document.querySelector('.li-tb[style*="var(--accent)"]')?.dataset?.tab || 'v';
+  const msgType   = activeTab === 'v' ? 'Verbinden-Nachricht' : 'InMail';
+  const varNum    = (activeTab === 'v' ? LI.vi : LI.ii) + 1;
+  // DOM lesen — erfasst auch manuelle Bearbeitungen
+  const bodyTxt  = document.getElementById(activeTab === 'v' ? 'li-t-v' : 'li-t-i')?.textContent || '';
+  const subjTxt  = document.getElementById('li-t-subj')?.textContent || '';
+  const msgText  = activeTab === 'v' ? bodyTxt : 'Betreff: ' + subjTxt + '\n\n' + bodyTxt;
+  const act = {
+    id: uid(), type: 'linkedin', contactId,
+    userId: '', date: fmtDate(0),
+    subject: activeTab === 'v' ? 'LinkedIn-Vernetzungsanfrage gesendet' : 'LinkedIn InMail gesendet',
+    details: '[' + msgType + ' – Variante ' + varNum + '/5]\n\n' + msgText,
+    duration: 0, created: new Date().toISOString()
+  };
+  DB.activities.push(act);
+  const ci = DB.contacts.findIndex(c => c.id === contactId);
+  if (ci >= 0) DB.contacts[ci].lastContact = fmtDate(0);
+  save();
+  const btn = document.getElementById('li-save-btn');
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Im CRM gespeichert';
+    btn.style.background = '#15803d';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = 'var(--green)'; }, 2800);
+  }
+  const co = DB.contacts[ci];
+  toast('✓ Aktivität für ' + (co ? co.company : 'Kontakt') + ' gespeichert', 'success');
+}
+
+function liReset() {
+  LI.vi = 0; LI.ii = 0; LI.gen = false; LI.contactId = null; LI.hasResearch = false;
+  ['li-vn','li-nn','li-un','li-pos','li-al','li-kern','li-frage'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const br = document.getElementById('li-br'); if(br) br.value = '';
+  const sel = document.getElementById('li-contact-sel'); if(sel) sel.value = '';
+  ['li-card-v','li-card-subj','li-card-i'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
+  ['li-ph-v','li-ph-i'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display='flex'; });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -6348,6 +6830,126 @@ function exportContactsCSV() {
   a.click();
   URL.revokeObjectURL(url);
   toast(contacts.length + ' Kontakte als CSV exportiert', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+// LEADNOTIZ-EXPORT (Format passend zur Kaltaquise_Leadnotizen.xlsx)
+// ══════════════════════════════════════════════════════════
+function exportLeadnotizCSV() {
+  const contacts = getFilteredContacts();
+
+  const TYPE_LABEL = {
+    call:    'Telefonat',
+    email:   'E-Mail',
+    visit:   'Besuch',
+    note:    'Notiz',
+    meeting: 'Meeting',
+    offer:   'Angebot'
+  };
+
+  // Alle Aktivitäten eines Kontakts als lesbaren Block aufbereiten.
+  // Jede Aktivität bekommt eine eigene Zeile:
+  //   [Datum] [Typ] | Betreff — Details
+  function buildAktivitaetenBlock(contactId) {
+    const acts = DB.activities
+      .filter(a => a.contactId === contactId)
+      .sort((a, b) => (a.date > b.date ? 1 : -1)); // chronologisch aufsteigend
+
+    if (!acts.length) return '';
+
+    return acts.map(a => {
+      const datum   = a.date ? formatDate(a.date) : '–';
+      const typ     = TYPE_LABEL[a.type] || a.type || 'Eintrag';
+      const betreff = (a.subject || '').trim();
+      const details = (a.details || '').replace(/\n+/g, ' / ').trim();
+      const dauer   = a.duration ? ` (${a.duration} Min.)` : '';
+
+      let zeile = `[${datum}] ${typ}${dauer}`;
+      if (betreff) zeile += ` | ${betreff}`;
+      if (details) zeile += ` — ${details}`;
+      return zeile;
+    }).join('\n');
+  }
+
+  const headers = [
+    'Firma',
+    'Strasse',
+    'PLZ',
+    'Ort',
+    'Branche',
+    'Tel. Entscheider',
+    'Tel. Unternehmen',
+    'Emailadresse',
+    'Leadgrund',
+    'Web-Link',
+    'Link Ausschreibung',
+    'Datum',
+    'Ansprechpartner',
+    'Position',
+    'Beschreibung',
+    'Vertriebsnotizen',
+    'Herausforderungen des Unternehmens',
+    'Status',
+    'Priorität',
+    'Akt. Dienstleister',
+    'Vertragsende',
+    'Potenzial €'
+  ];
+
+  const rows = contacts.map(c => {
+    // PLZ/Ort trennen: "41812 Grevenbroich" → PLZ=41812, Ort=Grevenbroich
+    const cityRaw   = c.city || '';
+    const cityMatch = cityRaw.match(/^(\d{4,5})\s+(.+)$/);
+    const plz = cityMatch ? cityMatch[1] : '';
+    const ort = cityMatch ? cityMatch[2] : cityRaw;
+
+    const ansprechpartner = [c.firstname, c.lastname].filter(Boolean).join(' ');
+
+    // Kontaktnotiz (Stammfeld) als Beschreibung
+    const beschreibung = (c.notes || '').trim();
+
+    // Alle Aktivitäten aus der Akte strukturiert als Vertriebsnotizen
+    const vertriebsnotizen = buildAktivitaetenBlock(c.id);
+
+    return [
+      c.company,
+      c.street,
+      plz,
+      ort,
+      c.industry,
+      c.phone,
+      '',                                   // Tel. Unternehmen – kein separates Feld im CRM
+      c.email,
+      c.source,
+      c.website,
+      '',                                   // Link Ausschreibung
+      new Date().toLocaleDateString('de-DE'),
+      ansprechpartner,
+      c.position,
+      beschreibung,
+      vertriebsnotizen,
+      (c.challenges || '').trim(),
+      c.status,
+      {high:'Hoch',medium:'Mittel',low:'Niedrig'}[c.priority] || c.priority,
+      c.currentProvider,
+      c.contractEnd,
+      c.potential || ''
+    ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"');
+  });
+
+  const csv = '\uFEFF' + [headers.map(h => '"' + h + '"')]
+    .concat(rows)
+    .map(r => r.join(';'))
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'leadnotizen-' + fmtDate(0) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(contacts.length + ' Kontakte als Leadnotiz-CSV exportiert', 'success');
 }
 
 // ══════════════════════════════════════════════════════════
