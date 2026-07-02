@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!--
+  ProSales CRM — Changelog
+  v24 (2026-07-02)
+  · 1.1 Aufgaben / Wiedervorlagen / Kalender zu EINER Seite zusammengeführt (Segmented Control: Liste | Wiedervorlagen | Kalender).
+        Bestehende Renderer (renderTasks/renderWiedervorlagen/renderKalender) unverändert weiterverwendet, nur umgehängt.
+        Alte Seitennamen 'wiedervorlagen' und 'kalender' als Aliase in showPage() erhalten.
+        Badges konsolidiert: task-badge = Summe (überfällig + heute fällig) über alle offenen Tasks; wv-badge in Segmented Control.
+  · 2.3 Sidebar gestrafft: Dashboard / Vertrieb (Kontakte · Pipeline · Aufgaben & WV · Aktivitäten) /
+        Werkzeuge (Vertriebsleitfaden · LinkedIn Outreach · Lead-Radar) / Auswertung (Berichte · Standortkarte · Finanzen).
+        Team & Nutzer, Export/Backup, Import, Team-Sync, Benutzerverwaltung ins Zahnrad-Menü (Sidebar-Footer) verschoben.
+        Sync-Status-Balken bleibt sichtbar. Keine Datenmodell-Änderungen.
+-->
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -11,7 +23,7 @@
 <meta name="theme-color" content="#0D1B2A">
 <meta name="description" content="ProSales CRM – Issel Security GmbH">
 <link rel="manifest" id="pwa-manifest">
-<title>ProSales CRM v22 – Werkschutz & Sicherheitsdienstleistungen</title>
+<title>ProSales CRM v24 – Werkschutz & Sicherheitsdienstleistungen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <!-- Leaflet.js – Kartenbibliothek (Open Source, kein API-Key) -->
@@ -145,6 +157,69 @@ body {
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 .sidebar-footer .version { font-size: 10px; color: rgba(255,255,255,0.2); text-align: center; }
+
+/* ── v24 (2.3): System-Menü im Sidebar-Footer ── */
+.sys-menu-trigger {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; margin-bottom: 8px;
+  border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.05);
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.sys-menu-trigger:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.sys-menu-trigger.open { background: rgba(255,255,255,0.12); color: #fff; }
+#sys-menu {
+  position: absolute;
+  bottom: calc(100% - 8px); left: 12px; right: 12px;
+  background: var(--navy2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+  padding: 6px;
+  z-index: 300;
+}
+.sys-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sys-menu-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.sys-menu-item svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.7; }
+
+/* ── v24 (1.1): Segmented Control — Unteransichten Aufgaben & Wiedervorlagen ── */
+.tv-switch {
+  display: inline-flex; gap: 2px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.tv-btn {
+  border: none; background: none; cursor: pointer;
+  padding: 7px 18px; border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  display: flex; align-items: center; gap: 7px;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.tv-btn:hover { color: var(--text); background: var(--bg); }
+.tv-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.tv-btn.active:hover { background: var(--accent2); color: #fff; }
 
 /* ── MAIN ────────────────────────────────────── */
 #main {
@@ -2584,7 +2659,7 @@ input[type="checkbox"]:hover {
         onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="login-btn" id="login-btn" onclick="doLogin()">Anmelden</button>
-    <div class="login-footer">ProSales CRM v23 · Issel Security GmbH · Vertraulich</div>
+    <div class="login-footer">ProSales CRM v24 · Issel Security GmbH · Vertraulich</div>
   </div>
 </div>
 
@@ -2677,7 +2752,7 @@ input[type="checkbox"]:hover {
     </div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section">Übersicht</div>
+    <!-- v24 (2.3): Sidebar gestrafft — 11 Punkte in 4 Gruppen; Systemaktionen im Zahnrad-Menü (Footer) -->
     <div class="nav-item active" onclick="showPage('dashboard')">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke-width="2"/></svg>
       Dashboard
@@ -2691,29 +2766,16 @@ input[type="checkbox"]:hover {
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2" stroke-linecap="round"/></svg>
       Pipeline
     </div>
+    <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg>
+      Aufgaben &amp; WV
+      <span class="nav-badge" id="task-badge" style="display:none">0</span>
+    </div>
     <div class="nav-item" onclick="showPage('activities')">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg>
       Aktivitäten
     </div>
-    <div class="nav-item" onclick="showPage('tasks')" id="nav-tasks">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg>
-      Aufgaben
-      <span class="nav-badge" id="task-badge" style="display:none">0</span>
-    </div>
-    <div class="nav-item" onclick="showPage('wiedervorlagen')" id="nav-wiedervorlagen">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke-width="2"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke-width="2"/></svg>
-      Wiedervorlagen
-      <span id="wv-badge" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px">0</span>
-    </div>
-    <div class="nav-item" onclick="showPage('kalender')" id="nav-kalender">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke-width="2" stroke-linecap="round"/></svg>
-      Kalender
-    </div>
-    <div class="nav-section">KI & Analyse</div>
-    <div class="nav-item" onclick="showPage('radar')" id="nav-radar">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2" stroke-linecap="round"/></svg>
-      Lead-Radar
-    </div>
+    <div class="nav-section">Werkzeuge</div>
     <div class="nav-item" onclick="showPage('playbook')" id="nav-playbook">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg>
       Vertriebsleitfaden
@@ -2722,43 +2784,53 @@ input[type="checkbox"]:hover {
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" stroke-width="2" stroke-linecap="round"/><rect x="2" y="9" width="4" height="12" stroke-width="2"/><circle cx="4" cy="4" r="2" stroke-width="2"/></svg>
       LinkedIn Outreach
     </div>
-    <div class="nav-section">Analyse</div>
-    <div class="nav-item" onclick="showPage('standortkarte')">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 10c0 6-8 13-8 13s-8-7-8-13a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-      Standortkarte
+    <div class="nav-item" onclick="showPage('radar')" id="nav-radar">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2" stroke-linecap="round"/></svg>
+      Lead-Radar
     </div>
+    <div class="nav-section">Auswertung</div>
     <div class="nav-item" onclick="showPage('reports')">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6" stroke-width="2" stroke-linecap="round"/></svg>
       Berichte
+    </div>
+    <div class="nav-item" onclick="showPage('standortkarte')">
+      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M20 10c0 6-8 13-8 13s-8-7-8-13a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      Standortkarte
     </div>
     <div class="nav-item" onclick="showPage('finanzen')">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke-width="2" stroke-linecap="round"/></svg>
       Finanzen
     </div>
-    <div class="nav-section">System</div>
-    <div class="nav-item" onclick="showPage('team')">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke-width="2"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2" stroke-linecap="round"/><path d="M21 21v-2a4 4 0 0 0-3-3.87" stroke-width="2" stroke-linecap="round"/></svg>
-      Team
-      <span id="team-badge" style="margin-left:auto;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px">0</span>
-    </div>
-    <div class="nav-item" onclick="exportData()">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-width="2"/><polyline points="7,10 12,15 17,10" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke-width="2" stroke-linecap="round"/></svg>
-      Export / Backup
-    </div>
-    <div class="nav-item" onclick="showImport()">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-width="2"/><polyline points="17,8 12,3 7,8" stroke-width="2"/><line x1="12" y1="3" x2="12" y2="15" stroke-width="2" stroke-linecap="round"/></svg>
-      Import
-    </div>
-    <div class="nav-item" onclick="openSyncModal()">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg>
-      Team-Sync
-    </div>
-    <div class="nav-item" id="nav-auth-users" style="display:none" onclick="openAuthUsersModal()">
-      <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-width="2" stroke-linecap="round"/></svg>
-      Benutzerverwaltung
-    </div>
   </div>
-  <div class="sidebar-footer" style="padding-bottom:10px">
+  <div class="sidebar-footer" style="padding-bottom:10px;position:relative">
+    <!-- v24 (2.3): System-Menü (Zahnrad) — Export/Import/Sync/Benutzerverwaltung/Team aus Hauptnavigation hierher verschoben -->
+    <div id="sys-menu" style="display:none">
+      <div class="sys-menu-item" onclick="showPage('team');toggleSysMenu(false)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke-width="2"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2" stroke-linecap="round"/><path d="M21 21v-2a4 4 0 0 0-3-3.87" stroke-width="2" stroke-linecap="round"/></svg>
+        Team &amp; Nutzer
+        <span id="team-badge" style="margin-left:auto;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px">0</span>
+      </div>
+      <div class="sys-menu-item" onclick="exportData();toggleSysMenu(false)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-width="2"/><polyline points="7,10 12,15 17,10" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke-width="2" stroke-linecap="round"/></svg>
+        Export / Backup
+      </div>
+      <div class="sys-menu-item" onclick="showImport();toggleSysMenu(false)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-width="2"/><polyline points="17,8 12,3 7,8" stroke-width="2"/><line x1="12" y1="3" x2="12" y2="15" stroke-width="2" stroke-linecap="round"/></svg>
+        Import
+      </div>
+      <div class="sys-menu-item" onclick="openSyncModal();toggleSysMenu(false)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg>
+        Team-Sync
+      </div>
+      <div class="sys-menu-item" id="nav-auth-users" style="display:none" onclick="openAuthUsersModal();toggleSysMenu(false)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-width="2" stroke-linecap="round"/></svg>
+        Benutzerverwaltung
+      </div>
+    </div>
+    <div class="sys-menu-trigger" id="sys-menu-trigger" onclick="toggleSysMenu()" title="System: Export, Import, Sync, Benutzerverwaltung">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="3" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke-width="2"/></svg>
+      System
+    </div>
     <!-- Eingeloggter Benutzer -->
     <div class="sidebar-user-bar" id="sidebar-user-bar" style="display:none">
       <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
@@ -2954,7 +3026,14 @@ input[type="checkbox"]:hover {
     </div>
 
     <!-- ══ TASKS ══ -->
+    <!-- v24 (1.1): Zusammengeführte Seite Aufgaben & Wiedervorlagen — Unteransichten: Liste | Wiedervorlagen | Kalender -->
     <div class="page" id="page-tasks">
+      <div class="tv-switch no-print" id="tasks-view-switch">
+        <button class="tv-btn active" id="tv-btn-liste" onclick="setTasksView('liste')">Liste</button>
+        <button class="tv-btn" id="tv-btn-wv" onclick="setTasksView('wv')">Wiedervorlagen <span id="wv-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px">0</span></button>
+        <button class="tv-btn" id="tv-btn-kalender" onclick="setTasksView('kalender')">Kalender</button>
+      </div>
+      <div id="tasks-view-liste">
       <div class="search-bar">
         <div class="search-input-wrap">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/></svg>
@@ -2981,6 +3060,15 @@ input[type="checkbox"]:hover {
         <div class="card-body" style="padding:8px 20px">
           <div id="tasks-list"></div>
         </div>
+      </div>
+      </div><!-- /tasks-view-liste -->
+      <!-- Unteransicht Wiedervorlagen: bestehender Renderer renderWiedervorlagen() → #wv-content -->
+      <div id="tasks-view-wv" style="display:none">
+        <div id="wv-content"></div>
+      </div>
+      <!-- Unteransicht Kalender: bestehender Renderer renderKalender() → #kalender-content -->
+      <div id="tasks-view-kalender" style="display:none">
+        <div id="kalender-content"></div>
       </div>
     </div>
 
@@ -3073,15 +3161,7 @@ input[type="checkbox"]:hover {
       </div>
     </div>
 
-    <!-- ══ WIEDERVORLAGEN ══ -->
-    <div class="page" id="page-wiedervorlagen">
-      <div id="wv-content"></div>
-    </div>
-
-    <!-- ══ KALENDER ══ -->
-    <div class="page" id="page-kalender">
-      <div id="kalender-content"></div>
-    </div>
+    <!-- v24 (1.1): page-wiedervorlagen & page-kalender entfernt — als Unteransichten in page-tasks integriert -->
 
     <!-- ══ LEAD-RADAR ══ -->
     <div class="page" id="page-radar">
@@ -5205,9 +5285,7 @@ const pageTitles = {
   contacts: 'Kontakte',
   pipeline: 'Pipeline',
   activities: 'Aktivitäten',
-  tasks: 'Aufgaben',
-  wiedervorlagen: 'Wiedervorlagen',
-  kalender: 'Kalender',
+  tasks: 'Aufgaben & Wiedervorlagen',
   radar: 'Lead-Radar',
   team: 'Team & Nutzer',
   finanzen: 'Finanzen & Umsatz',
@@ -5224,8 +5302,6 @@ const topbarActions = {
   pipeline:  '',
   activities:'',
   tasks:     '',
-  wiedervorlagen: '',
-  kalender:  '<button class="btn btn-secondary no-print btn-sm" onclick="kalenderPrev()">&#8592;</button> <span id="kalender-title" style="font-weight:600;padding:0 8px"></span> <button class="btn btn-secondary no-print btn-sm" onclick="kalenderNext()">&#8594;</button>',
   radar:     '',
   team:      '',
   finanzen:  '',
@@ -5236,7 +5312,37 @@ const topbarActions = {
   linkedin:  '<button class="btn btn-secondary no-print btn-sm" onclick="liReset()">&#8635; Zurücksetzen</button>'
 };
 
+// v24 (1.1): Alte Seitennamen als Aliase — bestehende showPage('wiedervorlagen')/showPage('kalender')-Aufrufe brechen nicht
+const pageAliases = {
+  wiedervorlagen: { page: 'tasks', view: 'wv' },
+  kalender:       { page: 'tasks', view: 'kalender' }
+};
+
+// v24 (1.1): Aktive Unteransicht der zusammengeführten Seite (Liste | Wiedervorlagen | Kalender)
+let tasksCurrentView = 'liste';
+const KALENDER_TOPBAR = '<button class="btn btn-secondary no-print btn-sm" onclick="kalenderPrev()">&#8592;</button> <span id="kalender-title" style="font-weight:600;padding:0 8px"></span> <button class="btn btn-secondary no-print btn-sm" onclick="kalenderNext()">&#8594;</button>';
+
+function setTasksView(view) {
+  tasksCurrentView = view;
+  ['liste', 'wv', 'kalender'].forEach(v => {
+    const el  = document.getElementById('tasks-view-' + v);
+    const btn = document.getElementById('tv-btn-' + v);
+    if (el)  el.style.display = (v === view) ? '' : 'none';
+    if (btn) btn.classList.toggle('active', v === view);
+  });
+  // Kalender-Navigation (←/→) nur in der Kalender-Unteransicht in der Topbar zeigen
+  const tb = document.getElementById('topbar-actions');
+  if (tb) tb.innerHTML = (view === 'kalender') ? KALENDER_TOPBAR : (topbarActions['tasks'] || '');
+  // Bestehende Renderer weiterverwenden — kein Neubau (Spez. 1.1)
+  if (view === 'liste')    { renderTasks(); updateTaskFilters(); }
+  if (view === 'wv')       renderWiedervorlagen();
+  if (view === 'kalender') renderKalender();
+}
+
 function showPage(name) {
+  // v24 (1.1): Alias-Auflösung vor allem anderen
+  let subview = null;
+  if (pageAliases[name]) { subview = pageAliases[name].view; name = pageAliases[name].page; }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
@@ -5251,18 +5357,34 @@ function showPage(name) {
   if (name === 'contacts') renderContacts();
   if (name === 'pipeline') { renderPipeline(); updatePipelineContactFilter(); }
   if (name === 'activities') { renderActivities(); updateActivityFilters(); }
-  if (name === 'tasks') { renderTasks(); updateTaskFilters(); }
+  if (name === 'tasks') setTasksView(subview || tasksCurrentView);
   if (name === 'team') renderTeam();
   if (name === 'finanzen') renderFinanzen();
   if (name === 'reports') renderReports();
   if (name === 'playbook') renderPlaybook();
   if (name === 'standortkarte') renderStandortkarte();
-  if (name === 'wiedervorlagen') renderWiedervorlagen();
-  if (name === 'kalender') renderKalender();
   if (name === 'radar') renderRadar();
   if (name === 'akte') {/* rendered by showAkte */}
   if (name === 'linkedin') renderLinkedIn();
 }
+
+// v24 (2.3): System-Menü (Zahnrad) im Sidebar-Footer
+function toggleSysMenu(force) {
+  const menu    = document.getElementById('sys-menu');
+  const trigger = document.getElementById('sys-menu-trigger');
+  if (!menu) return;
+  const open = (typeof force === 'boolean') ? force : menu.style.display === 'none';
+  menu.style.display = open ? '' : 'none';
+  if (trigger) trigger.classList.toggle('open', open);
+}
+// Klick außerhalb schließt das System-Menü
+document.addEventListener('click', e => {
+  const menu = document.getElementById('sys-menu');
+  if (menu && menu.style.display !== 'none' &&
+      !e.target.closest('#sys-menu') && !e.target.closest('#sys-menu-trigger')) {
+    toggleSysMenu(false);
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 // LINKEDIN OUTREACH MODULE
@@ -10510,19 +10632,23 @@ function wvUpdateBadge() {
 }
 
 function updateTaskBadge() {
+  // v24 (1.1): Konsolidierte Badge auf dem einen Nav-Eintrag —
+  // Summe aus überfällig + heute fällig über ALLE offenen Tasks (Aufgaben UND Wiedervorlagen)
   const today    = fmtDate(0);
-  // Nur echte Aufgaben (keine Wiedervorlagen)
-  const realTasks = DB.tasks.filter(t => !t.isWiedervorlage && !(t.category==='Nachfassen' && t.notes?.includes('Vertriebsleitfaden')));
-  const overdue  = realTasks.filter(t => !t.done && t.due && t.due < today).length;
-  const open     = realTasks.filter(t => !t.done).length;
+  const open     = DB.tasks.filter(t => !t.done);
+  const overdue  = open.filter(t => t.due && t.due < today).length;
+  const dueToday = open.filter(t => t.due === today).length;
+  const sum      = overdue + dueToday;
   const badge    = document.getElementById('task-badge');
   const mobDot   = document.getElementById('task-mob-badge');
   if (badge) {
-    if (overdue > 0) { badge.textContent = overdue; badge.style.display = ''; badge.style.background = 'var(--red)'; }
-    else if (open > 0) { badge.textContent = open; badge.style.display = ''; badge.style.background = 'var(--orange)'; }
-    else { badge.style.display = 'none'; }
+    if (sum > 0) {
+      badge.textContent = sum;
+      badge.style.display = '';
+      badge.style.background = overdue > 0 ? 'var(--red)' : 'var(--orange)';
+    } else { badge.style.display = 'none'; }
   }
-  if (mobDot) mobDot.style.display = open > 0 ? '' : 'none';
+  if (mobDot) mobDot.style.display = open.length > 0 ? '' : 'none';
 }
 
 // ── Push-Benachrichtigungen ───────────────────────────────
