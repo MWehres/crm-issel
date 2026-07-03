@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <!--
   ProSales CRM — Changelog
+  v25 (2026-07-03) — Sicherheits- & Sync-Überarbeitung
+  · AUTH: Login auf Firebase Authentication (E-Mail/Passwort) umgestellt. Eingebettetes DB-Secret,
+          JSONbin-Key, Default-Zugangsdaten (admin/issel2024) und clientseitiges SHA-256-Hashing entfernt.
+          Benutzerprofile (Rolle/Abteilung) liegen jetzt unter crm2/profiles/<uid> und syncen wie normale Daten.
+          Einrichtung (API-Key, Security Rules, Secret-Rotation): siehe SETUP.md.
+  · SYNC: Engine v2 – datensatzbasiert statt Komplett-Überschreiben. Jeder Datensatz trägt updatedAt,
+          gepusht werden nur Änderungen (ein Multi-Path-PATCH), Löschungen als Tombstones (30 Tage TTL),
+          Merge pro Datensatz (neuere Version gewinnt, lokal Ungesynctes wird nie überschrieben).
+          Echtzeit via EventSource-Stream auf crm2/meta, Polling (2 min) nur als Sicherheitsnetz.
+          Altbestand unter crm/ wird beim ersten Sync automatisch nach crm2/ migriert.
+          Heuristiken „mehr Kontakte gewinnt" und „frische Session pusht alles" entfernt (Datenverlust-Risiko).
+  · XSS:  esc() escapt jetzt auch Single-Quotes; toast() escapt Meldungen; fehlende esc()-Aufrufe ergänzt
+          (Kontaktliste Ort, Karten-Popup-Label, Leitfaden-Betreff, Playbook-Kontaktname).
+  · SONST: localStorage-Quota-Fehler werden gemeldet statt verschluckt; toter toggleMobileMenu()-Handler ergänzt.
   v24 (2026-07-02)
   · 1.1 Aufgaben / Wiedervorlagen / Kalender zu EINER Seite zusammengeführt (Segmented Control: Liste | Wiedervorlagen | Kalender).
         Bestehende Renderer (renderTasks/renderWiedervorlagen/renderKalender) unverändert weiterverwendet, nur umgehängt.
@@ -23,7 +37,7 @@
 <meta name="theme-color" content="#0D1B2A">
 <meta name="description" content="ProSales CRM – Issel Security GmbH">
 <link rel="manifest" id="pwa-manifest">
-<title>ProSales CRM v24 – Werkschutz & Sicherheitsdienstleistungen</title>
+<title>ProSales CRM v25 – Werkschutz & Sicherheitsdienstleistungen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <!-- Leaflet.js – Kartenbibliothek (Open Source, kein API-Key) -->
@@ -2647,10 +2661,18 @@ input[type="checkbox"]:hover {
     </div>
     <div class="login-title">Willkommen zurück</div>
     <div class="login-sub">Bitte melden Sie sich an, um fortzufahren.</div>
-    <div class="login-error" id="login-error">Benutzername oder Passwort falsch.</div>
+    <div class="login-error" id="login-error">E-Mail oder Passwort falsch.</div>
+    <div id="login-setup" style="display:none;background:var(--orange-light);color:var(--orange);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.6;margin-bottom:14px">
+      <strong>⚙️ Einrichtung erforderlich:</strong> Es ist noch kein Firebase-Web-API-Key hinterlegt
+      (Anleitung in SETUP.md). Key hier einfügen, um dieses Gerät zu verbinden:
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="text" id="login-apikey" placeholder="AIza…" style="flex:1;padding:7px 10px;border:1.5px solid var(--border2);border-radius:7px;font-size:12px;outline:none">
+        <button class="btn btn-primary btn-sm" onclick="saveLoginApiKey()">Speichern</button>
+      </div>
+    </div>
     <div class="login-field">
-      <label>Benutzername</label>
-      <input type="text" id="login-username" placeholder="benutzername" autocomplete="username"
+      <label>E-Mail</label>
+      <input type="email" id="login-username" placeholder="name@firma.de" autocomplete="username"
         onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
     </div>
     <div class="login-field">
@@ -2659,7 +2681,7 @@ input[type="checkbox"]:hover {
         onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="login-btn" id="login-btn" onclick="doLogin()">Anmelden</button>
-    <div class="login-footer">ProSales CRM v24 · Issel Security GmbH · Vertraulich</div>
+    <div class="login-footer">ProSales CRM v25 · Issel Security GmbH · Vertraulich</div>
   </div>
 </div>
 
@@ -2698,12 +2720,16 @@ input[type="checkbox"]:hover {
           <input type="text" id="ae-name" placeholder="Max Mustermann">
         </div>
         <div class="form-group">
-          <label>Benutzername *</label>
-          <input type="text" id="ae-username" placeholder="m.mustermann" autocomplete="off">
+          <label>E-Mail *</label>
+          <input type="email" id="ae-username" placeholder="m.mustermann@firma.de" autocomplete="off">
         </div>
-        <div class="form-group">
-          <label>Passwort <span id="ae-pw-hint" style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(leer lassen = unverändert)</span></label>
-          <input type="password" id="ae-password" placeholder="Neues Passwort" autocomplete="new-password">
+        <div class="form-group" id="ae-pw-group">
+          <label>Passwort <span id="ae-pw-hint" style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(leer lassen = automatisch generieren)</span></label>
+          <input type="password" id="ae-password" placeholder="Mind. 6 Zeichen" autocomplete="new-password">
+        </div>
+        <div class="form-group" id="ae-reset-row" style="display:none">
+          <label>Passwort</label>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="sendAuthUserReset()">✉️ Passwort-Reset-E-Mail senden</button>
         </div>
         <div class="form-group">
           <label>Rolle</label>
@@ -4062,408 +4088,247 @@ input[type="checkbox"]:hover {
 
 <script>
 // ══════════════════════════════════════════════════════════
-// FIREBASE AUTH SYNC SYSTEM (Simple REST API)
-// Speichert Auth-Daten in Firebase DB für Multi-Device Login
+// FIREBASE AUTHENTICATION (E-Mail/Passwort, Identity-Toolkit REST)
+// v25: ersetzt das frühere rein clientseitige Login (SHA-256-Hashes
+// in der offen lesbaren Datenbank) durch echte Firebase-Konten.
+// Der Web-API-Key steht bewusst im Client – er ist kein Geheimnis.
+// Der Zugriffsschutz liegt in den Firebase Security Rules
+// ("auth != null"), siehe SETUP.md.
 // ══════════════════════════════════════════════════════════
 
-const FIREBASE_DB_URL = 'https://crm-issel-default-rtdb.europe-west1.firebasedatabase.app';
+// ← Web-API-Key aus der Firebase-Konsole hier eintragen (SETUP.md, Schritt 2).
+//   Solange er leer ist, zeigt der Login-Screen ein Einrichtungsfeld an.
+const FB_API_KEY_EMBED = '';
+const FB_APIKEY_STORE  = 'prosales_fb_apikey';
+const FB_AUTH_STORE    = 'prosales_fbauth_v1';
+const SESSION_KEY      = 'prosales_session_v1';
 
-// User in Firebase DB speichern
-async function syncUserToFirebase(user) {
+let currentUser        = null;   // { userId(uid), dbUserId, username(=E-Mail), name, role, department }
+let _editingAuthUserId = null;   // uid des gerade bearbeiteten Profils
+let _fbAuth            = null;   // { uid, email, idToken, refreshToken }
+let _fbAuthRefreshTimer = null;
+let _fbAuthRetryTimer   = null;
+let _fbAuthOffline      = false; // true = Login aus Cache, Firebase nicht erreichbar
+
+// Altlasten des früheren Login-Systems entfernen (enthielt Passwort-Hashes)
+try { localStorage.removeItem('prosales_auth_v1'); } catch(e) {}
+
+function fbApiKey()        { return FB_API_KEY_EMBED || localStorage.getItem(FB_APIKEY_STORE) || ''; }
+function fbAuthConfigured(){ return !!fbApiKey(); }
+function fbAuthToken()     { return _fbAuth?.idToken || null; }
+function fbAuthUid()       { return _fbAuth?.uid || null; }
+
+function _authErrorText(code) {
+  if (/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)) return 'E-Mail oder Passwort falsch.';
+  if (/USER_DISABLED/.test(code))                 return 'Dieses Konto wurde deaktiviert.';
+  if (/TOO_MANY_ATTEMPTS/.test(code))             return 'Zu viele Fehlversuche – bitte später erneut versuchen.';
+  if (/EMAIL_EXISTS/.test(code))                  return 'Für diese E-Mail existiert bereits ein Konto.';
+  if (/INVALID_EMAIL|MISSING_EMAIL/.test(code))   return 'Ungültige E-Mail-Adresse.';
+  if (/WEAK_PASSWORD/.test(code))                 return 'Passwort zu schwach (mindestens 6 Zeichen).';
+  if (/OPERATION_NOT_ALLOWED/.test(code))         return 'E-Mail/Passwort-Anmeldung ist in Firebase nicht aktiviert (SETUP.md, Schritt 1).';
+  if (/ADMIN_ONLY_OPERATION/.test(code))          return 'Konto-Registrierung ist in Firebase deaktiviert – Nutzer bitte in der Firebase-Konsole anlegen.';
+  if (/API.?KEY|API key/i.test(code))             return 'Firebase-API-Key ungültig – bitte SETUP.md prüfen.';
+  return 'Anmeldung fehlgeschlagen (' + code + ').';
+}
+
+async function _idpCall(endpoint, body) {
+  const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:' + endpoint + '?key=' + encodeURIComponent(fbApiKey()), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = data?.error?.message || ('HTTP ' + res.status);
+    const err  = new Error(_authErrorText(code));
+    err.code   = code;
+    throw err;
+  }
+  return data;
+}
+
+function _fbAuthApply(data) {
+  const expiresIn = parseInt(data.expiresIn || data.expires_in || '3600', 10);
+  _fbAuth = {
+    uid:          data.localId || data.user_id || _fbAuth?.uid,
+    email:        (data.email || _fbAuth?.email || '').toLowerCase(),
+    idToken:      data.idToken || data.id_token,
+    refreshToken: data.refreshToken || data.refresh_token
+  };
   try {
-    // Firebase Keys dürfen keine Punkte enthalten - ersetze durch Unterstriche
-    const safeUsername = user.username.replace(/\./g, '_');
-    const url = `${FIREBASE_DB_URL}/auth_users/${safeUsername}.json`;
-    
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: user.username,
-        passwordHash: user.passwordHash,
-        name: user.name,
-        role: user.role,
-        department: user.department,
-        active: user.active,
-        created: user.created,
-        lastSync: new Date().toISOString()
-      })
-    });
-    
-    if (response.ok) {
-      console.log('✅ User in Firebase DB gespeichert:', user.username);
-      return true;
-    } else {
-      console.warn('⚠️ Firebase Sync fehlgeschlagen:', response.status);
-      return false;
-    }
-  } catch (error) {
-    console.warn('⚠️ Firebase Sync Error:', error.message);
-    return false;
-  }
+    localStorage.setItem(FB_AUTH_STORE, JSON.stringify({
+      uid: _fbAuth.uid, email: _fbAuth.email, refreshToken: _fbAuth.refreshToken
+    }));
+  } catch(e) {}
+  clearTimeout(_fbAuthRefreshTimer);
+  _fbAuthRefreshTimer = setTimeout(() => {
+    fbAuthRefresh().catch(e => console.warn('[Auth] Token-Refresh fehlgeschlagen:', e.message));
+  }, Math.max(60, expiresIn - 600) * 1000);
+  _fbAuthOffline = false;
+  // Sync-Engine informieren (Stream mit neuem Token neu aufbauen)
+  if (typeof _fbOnAuthTokenChanged === 'function') { try { _fbOnAuthTokenChanged(); } catch(e) {} }
 }
 
-// User aus Firebase DB laden
-async function loadUserFromFirebase(username) {
-  try {
-    // Firebase Keys dürfen keine Punkte enthalten - ersetze durch Unterstriche
-    const safeUsername = username.replace(/\./g, '_');
-    const url = `${FIREBASE_DB_URL}/auth_users/${safeUsername}.json`;
-    
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data) {
-        console.log('✅ User aus Firebase DB geladen:', username);
-        return data;
-      }
-    }
-    
-    console.log('⚠️ User nicht in Firebase DB:', username);
-    return null;
-  } catch (error) {
-    console.warn('⚠️ Firebase Load Error:', error.message);
-    return null;
-  }
+async function fbAuthSignIn(email, password) {
+  const data = await _idpCall('signInWithPassword', { email, password, returnSecureToken: true });
+  _fbAuthApply(data);
+  return _fbAuth;
 }
 
-// Alle User aus Firebase DB laden
-async function loadAllUsersFromFirebase() {
-  try {
-    const url = `${FIREBASE_DB_URL}/auth_users.json`;
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data) {
-        const users = Object.values(data);
-        console.log('✅ Alle User aus Firebase DB geladen:', users.length);
-        return users;
-      }
-    }
-    
-    return [];
-  } catch (error) {
-    console.warn('⚠️ Firebase Load All Error:', error.message);
-    return [];
+async function fbAuthRefresh() {
+  let refreshToken = _fbAuth?.refreshToken;
+  if (!refreshToken) {
+    try { refreshToken = JSON.parse(localStorage.getItem(FB_AUTH_STORE) || 'null')?.refreshToken; } catch(e) {}
   }
+  if (!refreshToken) { const e = new Error('Keine gespeicherte Anmeldung.'); e.authRevoked = true; throw e; }
+  const res = await fetch('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(fbApiKey()), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(refreshToken)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = data?.error?.message || ('HTTP ' + res.status);
+    const err  = new Error('Sitzung abgelaufen – bitte neu anmelden.');
+    err.code   = code;
+    err.authRevoked = /TOKEN_EXPIRED|USER_DISABLED|USER_NOT_FOUND|INVALID_REFRESH_TOKEN/.test(code);
+    throw err;
+  }
+  _fbAuthApply(data);
+  return _fbAuth;
 }
 
-console.log('✅ Firebase DB Sync System geladen');
-
-// ══════════════════════════════════════════════════════════
-// AUTH / LOGIN SYSTEM
-// ══════════════════════════════════════════════════════════
-const AUTH_KEY     = 'prosales_auth_v1';
-const SESSION_KEY  = 'prosales_session_v1';
-const AUTH_DEFAULT_USER = 'admin';
-const AUTH_DEFAULT_PASS = 'issel2024';
-
-// JSONbin-Zugangsdaten direkt hier – kein Timing-Problem auf Mobilgeräten
-const _AUTH_JB_KEY  = '$2a$10$BaUPeXZ5IWDazW6oWn8TjOQ6tLvkEUcX3Mo1eJKf.8FswDw9Fdhya';
-const _AUTH_JB_BIN  = '69c5195eb7ec241ddca5ef68';
-const _AUTH_JB_BASE = 'https://api.jsonbin.io/v3/b';
-
-let currentUser = null;  // Eingeloggter Benutzer (nach Login gesetzt)
-let _editingAuthUserId = null;
-
-// ── Pure-JS SHA-256 (immer verfügbar, auch auf file://) ──
-function _sha256Pure(msg) {
-  // Fest eingebettete Konstanten – kein Berechnungsfehler möglich
-  const K = [
-    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-  ];
-  // UTF-8-Encoding
-  const b = [];
-  for (let i = 0; i < msg.length; i++) {
-    const c = msg.charCodeAt(i);
-    if (c < 0x80)       { b.push(c); }
-    else if (c < 0x800) { b.push(0xC0|(c>>6), 0x80|(c&0x3F)); }
-    else                { b.push(0xE0|(c>>12), 0x80|((c>>6)&0x3F), 0x80|(c&0x3F)); }
-  }
-  const len = b.length;
-  b.push(0x80);
-  while (b.length % 64 !== 56) b.push(0);
-  // 64-bit big-endian Länge anhängen
-  const bl = len * 8;
-  b.push(0,0,0,0, (bl>>>24)&0xFF,(bl>>>16)&0xFF,(bl>>>8)&0xFF, bl&0xFF);
-
-  // Hash-Initialisierung (fest, nie gecacht)
-  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,
-      h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
-
-  const w = new Array(64);
-  for (let i = 0; i < b.length; i += 64) {
-    for (let j = 0; j < 16; j++)
-      w[j] = (b[i+j*4]<<24)|(b[i+j*4+1]<<16)|(b[i+j*4+2]<<8)|b[i+j*4+3];
-    for (let j = 16; j < 64; j++) {
-      const s0 = ((w[j-15]>>>7)|(w[j-15]<<25)) ^ ((w[j-15]>>>18)|(w[j-15]<<14)) ^ (w[j-15]>>>3);
-      const s1 = ((w[j-2]>>>17)|(w[j-2]<<15)) ^ ((w[j-2]>>>19)|(w[j-2]<<13)) ^ (w[j-2]>>>10);
-      w[j] = (w[j-16]+s0+w[j-7]+s1)|0;
-    }
-    let a=h0,b2=h1,c=h2,d=h3,e=h4,f=h5,g=h6,hh=h7;
-    for (let j = 0; j < 64; j++) {
-      const S1 = ((e>>>6)|(e<<26)) ^ ((e>>>11)|(e<<21)) ^ ((e>>>25)|(e<<7));
-      const ch = (e&f)^(~e&g);
-      const t1 = (hh+S1+ch+K[j]+w[j])|0;
-      const S0 = ((a>>>2)|(a<<30)) ^ ((a>>>13)|(a<<19)) ^ ((a>>>22)|(a<<10));
-      const maj = (a&b2)^(a&c)^(b2&c);
-      const t2 = (S0+maj)|0;
-      hh=g; g=f; f=e; e=(d+t1)|0; d=c; c=b2; b2=a; a=(t1+t2)|0;
-    }
-    h0=(h0+a)|0; h1=(h1+b2)|0; h2=(h2+c)|0; h3=(h3+d)|0;
-    h4=(h4+e)|0; h5=(h5+f)|0; h6=(h6+g)|0; h7=(h7+hh)|0;
-  }
-  return [h0,h1,h2,h3,h4,h5,h6,h7]
-    .map(v=>('00000000'+(v>>>0).toString(16)).slice(-8)).join('');
+function fbAuthSignOut() {
+  clearTimeout(_fbAuthRefreshTimer);
+  clearTimeout(_fbAuthRetryTimer);
+  _fbAuth = null;
+  _fbAuthOffline = false;
+  try { localStorage.removeItem(FB_AUTH_STORE); } catch(e) {}
 }
 
-// ── Passwort-Hashing (SHA-256 via Web Crypto) ─────────────
-// ── Sicheres Passwort generieren ──
+// Neues Firebase-Konto anlegen (Benutzerverwaltung). Die Tokens des
+// neuen Kontos werden verworfen – die Admin-Sitzung bleibt bestehen.
+async function fbAuthCreateAccount(email, password) {
+  const data = await _idpCall('signUp', { email, password, returnSecureToken: true });
+  return data.localId;
+}
+
+async function fbAuthSendPasswordReset(email) {
+  await _idpCall('sendOobCode', { requestType: 'PASSWORD_RESET', email });
+}
+
+// ── Sicheres Passwort generieren ──────────────────────────
 function generateSecurePassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   let pwd = '';
-  for (let i = 0; i < 12; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  const rnd = new Uint32Array(12);
+  if (window.crypto?.getRandomValues) crypto.getRandomValues(rnd);
+  else for (let i = 0; i < 12; i++) rnd[i] = Math.floor(Math.random() * 0xFFFFFFFF);
+  for (let i = 0; i < 12; i++) pwd += chars.charAt(rnd[i] % chars.length);
   return pwd;
 }
 
-async function hashPassword(password) {
-  const input = password + 'issel_crm_salt_2024';
-
-  // crypto.subtle nur in sicheren Kontexten (HTTPS/localhost) verfügbar
-  if (window.crypto?.subtle) {
-    try {
-      const enc = new TextEncoder();
-      const buf = await crypto.subtle.digest('SHA-256', enc.encode(input));
-      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    } catch(e) { /* Fallback */ }
-  }
-
-  // Pure-JS Fallback (funktioniert auf file://)
-  return _sha256Pure(input);
+// ── Benutzerprofile (Name/Rolle/Abteilung) ────────────────
+// Liegen unter crm2/profiles/<uid> und werden über die normale
+// Sync-Engine (DB.profiles) auf alle Geräte verteilt.
+function getProfiles() {
+  return (typeof DB !== 'undefined' && Array.isArray(DB.profiles)) ? DB.profiles : [];
 }
 
-// ── Auth-Daten laden ──────────────────────────────────────
-function loadAuthUsers() {
+async function _loadOrCreateOwnProfile() {
+  const uid = fbAuthUid();
+  let profile = null;
+  try { profile = await fbGet('profiles/' + uid); } catch(e) { console.warn('[Auth] Profil laden fehlgeschlagen:', e.message); }
+  if (profile && !profile.deleted) return profile;
+
+  // Erstes Login dieses Kontos → Profil anlegen.
+  // Existiert noch kein anderes Profil, wird dieses Konto Admin.
+  let hasOthers = false;
   try {
-    const raw = localStorage.getItem(AUTH_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveAuthUsers(users) {
-  localStorage.setItem(AUTH_KEY, JSON.stringify(users));
-  // Sync-Push wenn JSONbin konfiguriert — so werden Änderungen geräteübergreifend gespeichert
-  if (typeof fbIsConfigured === 'function' && fbIsConfigured()) {
-    syncPush();
-  }
-}
-
-// ── Remote Auth-User laden (für neue Geräte ohne lokalen Cache) ──
-async function authLoadRemoteUsers() {
-  const sub = document.getElementById('login-sub');
-  if (sub) sub.textContent = 'Benutzer werden geladen…';
-
-  try {
-    // Firebase-URL aus localStorage oder hardcoded Default
-    let fbUrl = FB_DEFAULT_URL;
-    try {
-      const cfg = JSON.parse(localStorage.getItem('prosales_firebase_cfg') || '{}');
-      fbUrl = cfg.url || FB_DEFAULT_URL;
-    } catch(e) {}
-
-    // Firebase laden
-    const res = await fetch(`${fbUrl}/crm/meta.json?auth=${FB_SECRET}`, { cache: 'no-store' });
-    if (res.ok) {
-      const remote = await res.json();
-      if (remote && remote.authUsers && remote.authUsers.length > 0) {
-        _mergeAuthUsers(remote.authUsers);
-      }
-    }
-  } catch(e) {
-    console.warn('[Auth] Remote-Load fehlgeschlagen:', e.message);
-  }
-
-  if (sub) sub.textContent = 'Bitte melden Sie sich an, um fortzufahren.';
-}
-
-function _mergeAuthUsers(remoteUsers) {
-  const local  = loadAuthUsers();
-  const merged = [...local];
-  remoteUsers.forEach(ru => {
-    const exists = merged.find(u => u.id === ru.id || u.username === ru.username);
-    if (!exists) {
-      merged.push(ru);
-    } else if (ru.passwordHash && !exists.passwordHash) {
-      Object.assign(exists, ru);
-    }
-  });
-  localStorage.setItem(AUTH_KEY, JSON.stringify(merged));
-  console.log(`[Auth] ${merged.length} Benutzer synchronisiert`);
-}
-
-// ── Standard-Admin anlegen falls keine User vorhanden ─────
-async function ensureDefaultAdmin() {
-  let users = loadAuthUsers();
-  if (users.length === 0) {
-    const hash = await hashPassword(AUTH_DEFAULT_PASS);
-    users = [{
-      id: 'admin_' + Date.now(),
-      username: AUTH_DEFAULT_USER,
-      passwordHash: hash,
-      name: 'Administrator',
-      role: 'admin',
-      active: true,
-      created: new Date().toISOString()
-    }];
-    saveAuthUsers(users);
-  }
-}
-
-// ── Session prüfen / initialisieren ──────────────────────
-function checkSession() {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    // Abgleich mit gespeicherten Usern (User könnte gelöscht/deaktiviert worden sein)
-    const users = loadAuthUsers();
-    const user = users.find(u => u.id === session.userId && u.active !== false);
-    return user ? session : null;
-  } catch { return null; }
-}
-
-function setSession(user) {
-  const session = {
-    userId:     user.id,
-    dbUserId:   user.dbUserId   || null,
-    username:   user.username,
-    name:       user.name,
-    role:       user.role,
-    department: user.department || ''
+    const all = await fbGet('profiles');
+    hasOthers = !!(all && Object.keys(all).some(k => k !== uid && all[k] && !all[k].deleted));
+  } catch(e) {}
+  profile = {
+    id:         uid,
+    email:      _fbAuth.email,
+    name:       _fbAuth.email.split('@')[0],
+    role:       hasOthers ? 'user' : 'admin',
+    department: '',
+    active:     true,
+    dbUserId:   'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    created:    new Date().toISOString(),
+    updatedAt:  Date.now()
   };
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  try { await fbPut('profiles/' + uid, profile); } catch(e) { console.warn('[Auth] Profil anlegen fehlgeschlagen:', e.message); }
+  return profile;
+}
+
+function _adoptProfileLocally(profile) {
+  if (typeof DB === 'undefined' || !profile) return;
+  if (!Array.isArray(DB.profiles)) DB.profiles = [];
+  const idx = DB.profiles.findIndex(p => p.id === profile.id);
+  if (idx >= 0) DB.profiles[idx] = profile; else DB.profiles.push(profile);
+  if (typeof saveLocal === 'function') saveLocal();
+}
+
+// ── Session ───────────────────────────────────────────────
+function setSession(profile) {
+  const session = {
+    userId:     profile.id,
+    dbUserId:   profile.dbUserId || null,
+    username:   profile.email,
+    name:       profile.name,
+    role:       profile.role,
+    department: profile.department || ''
+  };
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch(e) {}
   currentUser = session;
 }
 
-// Hilfsfunktion: DB.users-ID des eingeloggten Nutzers
 function getCurrentDbUserId() {
   return currentUser?.dbUserId || null;
 }
 
 function clearSession() {
-  sessionStorage.removeItem(SESSION_KEY);
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
   currentUser = null;
 }
 
-// ── Login-Funktion ────────────────────────────────────────
+// ── Login ─────────────────────────────────────────────────
 async function doLogin() {
-  const btn       = document.getElementById('login-btn');
-  const errEl     = document.getElementById('login-error');
-  const username  = document.getElementById('login-username').value.trim().toLowerCase();
-  const password  = document.getElementById('login-password').value;
+  const btn      = document.getElementById('login-btn');
+  const errEl    = document.getElementById('login-error');
+  const email    = document.getElementById('login-username').value.trim().toLowerCase();
+  const password = document.getElementById('login-password').value;
 
-  if (!username || !password) {
-    showLoginError('Bitte Benutzername und Passwort eingeben.');
+  if (!fbAuthConfigured()) {
+    showLoginError('Firebase ist noch nicht eingerichtet – bitte SETUP.md folgen.');
+    _renderLoginSetupState();
     return;
   }
+  if (!email || !password) { showLoginError('Bitte E-Mail und Passwort eingeben.'); return; }
 
   btn.disabled = true;
-  btn.textContent = 'Anmelde…';
+  btn.textContent = 'Anmelden…';
   errEl.style.display = 'none';
 
   try {
-    const hash = await hashPassword(password);
-    console.log('🔐 Login-Versuch:', username);
-    
-    // 🔥 SCHRITT 1: Firebase DB abfragen
-    console.log('🔍 Prüfe Firebase DB...');
-    const firebaseUser = await loadUserFromFirebase(username);
-    
-    if (firebaseUser) {
-      console.log('📡 User in Firebase DB gefunden!');
-      
-      if (firebaseUser.passwordHash === hash && firebaseUser.active !== false) {
-        console.log('✅ Firebase DB Login erfolgreich!');
-        
-        // In localStorage syncen für Offline-Nutzung
-        const users = loadAuthUsers();
-        const localUser = users.find(u => u.username === username);
-        
-        if (!localUser) {
-          users.push({
-            id: 'a_' + Date.now(),
-            dbUserId: firebaseUser.dbUserId || ('u_' + Date.now()),
-            username: firebaseUser.username,
-            passwordHash: firebaseUser.passwordHash,
-            name: firebaseUser.name,
-            role: firebaseUser.role,
-            department: firebaseUser.department || '',
-            active: firebaseUser.active,
-            created: firebaseUser.created
-          });
-          saveAuthUsers(users);
-          console.log('💾 User in localStorage gespeichert');
-        }
-        
-        setSession({
-          userId: firebaseUser.dbUserId || username,
-          username: firebaseUser.username,
-          name: firebaseUser.name,
-          role: firebaseUser.role,
-          department: firebaseUser.department || ''
-        });
-        
-        showApp();
-        return;
-      } else {
-        console.log('❌ Passwort stimmt nicht überein!');
-      }
-    } else {
-      console.log('⚠️ User nicht in Firebase DB');
-    }
-    
-    // 🔄 SCHRITT 2: localStorage Fallback
-    console.log('🔄 Fallback zu localStorage...');
-    const users = loadAuthUsers();
-    const user = users.find(u =>
-      u.username.toLowerCase() === username &&
-      u.passwordHash === hash &&
-      u.active !== false
-    );
-    
-    if (user) {
-      console.log('✅ localStorage Login erfolgreich!');
-      
-      // Zu Firebase syncen
-      await syncUserToFirebase(user);
-      
-      setSession(user);
-      showApp();
+    await fbAuthSignIn(email, password);
+    const profile = await _loadOrCreateOwnProfile();
+    if (profile.active === false || profile.deleted) {
+      fbAuthSignOut();
+      showLoginError('Dieses Konto ist deaktiviert.');
+      btn.disabled = false; btn.textContent = 'Anmelden';
       return;
     }
-    
-    // ❌ Beide fehlgeschlagen
-    console.log('❌ Login fehlgeschlagen - User nicht gefunden oder Passwort falsch');
-    showLoginError('Benutzername oder Passwort falsch.');
-    btn.disabled = false;
-    btn.textContent = 'Anmelden';
-
+    _adoptProfileLocally(profile);
+    setSession(profile);
+    showApp();
+    if (typeof syncAutoInit === 'function') syncAutoInit();
   } catch(e) {
-    console.error('[Login Fehler]', e);
-    showLoginError('Fehler: ' + e.message);
-    btn.disabled = false;
-    btn.textContent = 'Anmelden';
+    console.warn('[Login]', e.code || '', e.message);
+    showLoginError(e.message);
+    btn.disabled = false; btn.textContent = 'Anmelden';
   }
 }
 
@@ -4475,24 +4340,35 @@ function showLoginError(msg) {
   document.getElementById('login-password').focus();
 }
 
+// Einrichtungshinweis auf dem Login-Screen, solange kein API-Key hinterlegt ist
+function _renderLoginSetupState() {
+  const box = document.getElementById('login-setup');
+  if (!box) return;
+  box.style.display = fbAuthConfigured() ? 'none' : 'block';
+}
+
+function saveLoginApiKey() {
+  const input = document.getElementById('login-apikey');
+  const key = (input?.value || '').trim();
+  if (!key) return;
+  try { localStorage.setItem(FB_APIKEY_STORE, key); } catch(e) {}
+  _renderLoginSetupState();
+  const errEl = document.getElementById('login-error');
+  if (errEl) errEl.style.display = 'none';
+  document.getElementById('login-username')?.focus();
+}
+
 // ── App anzeigen nach Login ───────────────────────────────
 function showApp() {
   const screen = document.getElementById('login-screen');
   screen.classList.add('hide');
   setTimeout(() => { screen.style.display = 'none'; }, 350);
 
-  // Sidebar-User-Badge aktualisieren
   updateSidebarUserBadge();
 
-  // Benutzerverwaltung-Nav-Item nur für Admins sichtbar
+  // Benutzerverwaltung nur für Admins sichtbar
   const navAuth = document.getElementById('nav-auth-users');
   if (navAuth) navAuth.style.display = currentUser?.role === 'admin' ? '' : 'none';
-
-  // App initialisieren (nur einmal)
-  if (!window._appInitialized) {
-    window._appInitialized = true;
-    // App wurde bereits beim Laden initialisiert (IIFE) — kein weiterer Aufruf nötig
-  }
 }
 
 function updateSidebarUserBadge() {
@@ -4504,7 +4380,7 @@ function updateSidebarUserBadge() {
   if (!bar) return;
   bar.style.display = 'flex';
   const initials = (currentUser.name || currentUser.username || '?')
-    .split(' ').map(p => p[0]).join('').toUpperCase().slice(0,2);
+    .split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
   avatar.textContent = initials;
   name.textContent   = currentUser.name || currentUser.username;
   role.textContent   = currentUser.role === 'admin' ? 'Administrator' : 'Benutzer';
@@ -4513,8 +4389,9 @@ function updateSidebarUserBadge() {
 // ── Logout ───────────────────────────────────────────────
 function doLogout() {
   if (!confirm('Wirklich abmelden?')) return;
+  if (typeof syncStop === 'function') syncStop();
+  fbAuthSignOut();
   clearSession();
-  // Login-Screen wieder zeigen
   const screen = document.getElementById('login-screen');
   screen.style.display = 'flex';
   screen.classList.remove('hide');
@@ -4524,7 +4401,6 @@ function doLogout() {
   document.getElementById('login-btn').disabled = false;
   document.getElementById('login-btn').textContent = 'Anmelden';
   document.getElementById('login-username').focus();
-  // User-Badge ausblenden
   const bar = document.getElementById('sidebar-user-bar');
   if (bar) bar.style.display = 'none';
 }
@@ -4536,31 +4412,31 @@ function openAuthUsersModal() {
 }
 
 function renderAuthUsersList() {
-  const users = loadAuthUsers();
+  const users = getProfiles().filter(p => p && !p.deleted);
   const el    = document.getElementById('auth-users-list');
   if (!el) return;
   if (!users.length) {
-    el.innerHTML = '<p style="color:var(--text3);font-size:13px">Keine Benutzer gefunden.</p>';
+    el.innerHTML = '<p style="color:var(--text3);font-size:13px">Keine Benutzer gefunden. Neue Benutzer erscheinen hier nach ihrem ersten Login oder wenn sie hier angelegt werden.</p>';
     return;
   }
   el.innerHTML = users.map(u => {
-    const initials = (u.name || u.username || '?').split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);
+    const initials = (u.name || u.email || '?').split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
     const isMe = u.id === currentUser?.userId;
     return `<div class="auth-user-row">
-      <div class="auth-user-avatar" style="background:${u.role==='admin'?'var(--accent)':'var(--purple)'}">${initials}</div>
+      <div class="auth-user-avatar" style="background:${u.role === 'admin' ? 'var(--accent)' : 'var(--purple)'}">${esc(initials)}</div>
       <div class="auth-user-info">
-        <div class="auth-user-name">${esc(u.name || u.username)} ${isMe?'<span style="font-size:10px;color:var(--accent);font-weight:600">(Ich)</span>':''}</div>
+        <div class="auth-user-name">${esc(u.name || u.email)} ${isMe ? '<span style="font-size:10px;color:var(--accent);font-weight:600">(Ich)</span>' : ''}</div>
         <div class="auth-user-meta">
-          @${esc(u.username)} ·
-          <span style="color:${u.role==='admin'?'var(--accent)':'var(--purple)'};font-weight:600">${u.role==='admin'?'Admin':'Benutzer'}</span>
-          ${u.active===false?'· <span style="color:var(--text3)">Inaktiv</span>':''}
+          ${esc(u.email)} ·
+          <span style="color:${u.role === 'admin' ? 'var(--accent)' : 'var(--purple)'};font-weight:600">${u.role === 'admin' ? 'Admin' : 'Benutzer'}</span>
+          ${u.active === false ? '· <span style="color:var(--text3)">Inaktiv</span>' : ''}
         </div>
       </div>
       <div style="display:flex;gap:4px">
-        <button class="btn-icon btn-sm" title="Bearbeiten" onclick="openAuthUserModal('${u.id}')">
+        <button class="btn-icon btn-sm" title="Bearbeiten" onclick="openAuthUserModal('${esc(u.id)}')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-width="2"/></svg>
         </button>
-        ${!isMe ? `<button class="btn-icon btn-sm" title="Löschen" style="color:var(--red)" onclick="deleteAuthUser('${u.id}')">
+        ${!isMe ? `<button class="btn-icon btn-sm" title="Löschen" style="color:var(--red)" onclick="deleteAuthUser('${esc(u.id)}')">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg>
         </button>` : ''}
       </div>
@@ -4572,29 +4448,37 @@ function openAuthUserModal(userId) {
   _editingAuthUserId = userId || null;
   const isNew = !userId;
   document.getElementById('auth-edit-title').textContent = isNew ? 'Neuer Benutzer' : 'Benutzer bearbeiten';
-  document.getElementById('ae-pw-hint').style.display = isNew ? 'none' : '';
+
+  const emailInput = document.getElementById('ae-username');
+  const pwGroup    = document.getElementById('ae-pw-group');
+  const resetRow   = document.getElementById('ae-reset-row');
+  if (pwGroup)  pwGroup.style.display  = isNew ? '' : 'none';
+  if (resetRow) resetRow.style.display = isNew ? 'none' : '';
+  if (emailInput) emailInput.disabled  = !isNew;
 
   if (userId) {
-    const users = loadAuthUsers();
-    const u = users.find(x => x.id === userId);
+    const u = getProfiles().find(x => x.id === userId);
     if (!u) return;
     document.getElementById('ae-name').value     = u.name || '';
-    document.getElementById('ae-username').value = u.username;
-    document.getElementById('ae-password').value = '';
+    document.getElementById('ae-username').value = u.email || '';
+    const pwEl = document.getElementById('ae-password');
+    if (pwEl) pwEl.value = '';
     document.getElementById('ae-role').value     = u.role || 'user';
     document.getElementById('ae-active').checked = u.active !== false;
-    // Abteilungs-Checkboxen befüllen
     const depts = (u.department || '').split(',').map(s => s.trim().toLowerCase());
     ['security','facility','k9'].forEach(d => {
-      const cb = document.getElementById('ae-dept-'+d);
+      const cb = document.getElementById('ae-dept-' + d);
       if (cb) cb.checked = depts.includes(d);
     });
   } else {
-    ['ae-name','ae-username','ae-password'].forEach(id => { document.getElementById(id).value = ''; });
+    ['ae-name','ae-username','ae-password'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     document.getElementById('ae-role').value     = 'user';
     document.getElementById('ae-active').checked = true;
     ['security','facility','k9'].forEach(d => {
-      const cb = document.getElementById('ae-dept-'+d);
+      const cb = document.getElementById('ae-dept-' + d);
       if (cb) cb.checked = false;
     });
   }
@@ -4602,166 +4486,176 @@ function openAuthUserModal(userId) {
 }
 
 async function saveAuthUser() {
-  const name     = document.getElementById('ae-name').value.trim();
-  const username = document.getElementById('ae-username').value.trim().toLowerCase();
-  let password   = document.getElementById('ae-password').value;
-  const role     = document.getElementById('ae-role').value;
-  const active   = document.getElementById('ae-active').checked;
+  const name   = document.getElementById('ae-name').value.trim();
+  const email  = document.getElementById('ae-username').value.trim().toLowerCase();
+  const role   = document.getElementById('ae-role').value;
+  const active = document.getElementById('ae-active').checked;
 
-  // Abteilungen auslesen
   const depts = ['security','facility','k9']
-    .filter(d => document.getElementById('ae-dept-'+d)?.checked)
+    .filter(d => document.getElementById('ae-dept-' + d)?.checked)
     .map(d => d.charAt(0).toUpperCase() + d.slice(1));
   const department = depts.join(',');
 
-  if (!username) { toast('Benutzername ist Pflicht', 'error'); return; }
-  
-  // ✅ NEU: Auto-Passwort für neue User falls leer
-  let generatedPassword = null;
-  if (!_editingAuthUserId && !password) {
-    password = generateSecurePassword();
-    generatedPassword = password;
-    console.log('🔑 Auto-generiertes Passwort:', password);
-  }
-
-  const users = loadAuthUsers();
-  const dup = users.find(u => u.username === username && u.id !== _editingAuthUserId);
-  if (dup) { toast('Benutzername bereits vergeben', 'error'); return; }
-
-  let dbUserId;
+  if (!Array.isArray(DB.profiles)) DB.profiles = [];
 
   if (_editingAuthUserId) {
-    const idx = users.findIndex(u => u.id === _editingAuthUserId);
-    if (idx < 0) return;
-    users[idx].name       = name;
-    users[idx].username   = username;
-    users[idx].role       = role;
-    users[idx].active     = active;
-    users[idx].department = department;
-    if (password) users[idx].passwordHash = await hashPassword(password);
-    dbUserId = users[idx].dbUserId;
-    if (currentUser && _editingAuthUserId === currentUser.userId) {
-      currentUser.name = name; currentUser.username = username;
-      currentUser.role = role; currentUser.department = department;
-      setSession(users[idx]);
+    const profile = DB.profiles.find(p => p.id === _editingAuthUserId);
+    if (!profile) return;
+    // Letzten aktiven Admin schützen
+    if (profile.role === 'admin' && (role !== 'admin' || !active)) {
+      const admins = getProfiles().filter(p => !p.deleted && p.role === 'admin' && p.active !== false);
+      if (admins.length <= 1) { toast('Mindestens ein aktiver Admin muss vorhanden bleiben!', 'error'); return; }
+    }
+    profile.name       = name;
+    profile.role       = role;
+    profile.active     = active;
+    profile.department = department;
+    if (currentUser && profile.id === currentUser.userId) {
+      setSession(profile);
       updateSidebarUserBadge();
     }
-  } else {
-    const hash = await hashPassword(password);
-    console.log('🔑 Neuer User:', username);
-    console.log('🔑 Passwort:', password);
-    console.log('🔒 Hash (erste 20 Zeichen):', hash.substring(0, 20) + '...');
-    
-    // Neue ID die sowohl für Auth-User als auch DB.users verwendet wird
-    dbUserId = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    const newUser = {
-      id: 'a_' + Date.now(),
-      dbUserId,
-      username,
-      passwordHash: hash,
-      name,
-      role,
-      department,
-      active,
-      created: new Date().toISOString()
-    };
-    users.push(newUser);
-    console.log('✅ User angelegt:', newUser);
+    save();
+    syncAuthUsersToCrmUsers(true);
+    closeModal('modal-auth-edit');
+    renderAuthUsersList();
+    toast('Benutzer aktualisiert', 'success');
+    return;
   }
 
-  saveAuthUsers(users);
+  // Neuen Benutzer anlegen: Firebase-Konto + Profil
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Bitte gültige E-Mail angeben', 'error'); return; }
+  if (getProfiles().some(p => !p.deleted && p.email === email)) { toast('Für diese E-Mail existiert bereits ein Benutzer', 'error'); return; }
 
-  // 🔥 Firebase DB Sync
-  const userToSync = _editingAuthUserId ? 
-    users.find(u => u.id === _editingAuthUserId) : 
-    users[users.length - 1];
-  
-  if (userToSync) {
-    console.log('📡 Syncing User zu Firebase DB...');
-    const synced = await syncUserToFirebase(userToSync);
-    if (synced) {
-      console.log('✅ User in Firebase DB - Login von überall möglich!');
-    } else {
-      console.warn('⚠️ Firebase Sync fehlgeschlagen - User nur lokal verfügbar');
-    }
+  let password = document.getElementById('ae-password').value;
+  let generatedPassword = null;
+  if (!password) {
+    password = generateSecurePassword();
+    generatedPassword = password;
   }
 
-  // ── Automatisch in DB.users (CRM-Team) synchronisieren ──
-  if (typeof DB !== 'undefined' && dbUserId) {
-    const existingIdx = DB.users.findIndex(u => u.id === dbUserId || u.authId === (_editingAuthUserId || ''));
-    const dbEntry = {
-      id:         dbUserId,
-      authId:     _editingAuthUserId || users[users.length-1]?.id,
-      name:       name || username,
-      role:       role === 'admin' ? 'Administrator' : 'Mitarbeiter',
-      department,
-      color:      existingIdx >= 0 ? (DB.users[existingIdx].color || '#1565C0') : '#1565C0',
-      email:      existingIdx >= 0 ? (DB.users[existingIdx].email || '') : '',
-      active,
-      created:    new Date().toISOString()
-    };
-    if (existingIdx >= 0) {
-      DB.users[existingIdx] = { ...DB.users[existingIdx], ...dbEntry };
-    } else {
-      DB.users.push(dbEntry);
-    }
-    if (typeof save === 'function') save();
-    if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
-    if (typeof updateTeamBadge === 'function') updateTeamBadge();
-    if (typeof renderTeam === 'function' && document.getElementById('page-team')?.classList.contains('active')) renderTeam();
+  let uid;
+  try {
+    uid = await fbAuthCreateAccount(email, password);
+  } catch(e) {
+    toast(e.message, 'error');
+    return;
   }
 
-  // ✅ NEU: Passwort-Anzeige für neue Benutzer
+  const profile = {
+    id:         uid,
+    email,
+    name:       name || email.split('@')[0],
+    role,
+    department,
+    active,
+    dbUserId:   'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    created:    new Date().toISOString(),
+    updatedAt:  Date.now()
+  };
+  DB.profiles.push(profile);
+  save();
+  syncAuthUsersToCrmUsers(true);
+
   if (generatedPassword) {
     setTimeout(() => {
-      alert(`✅ Benutzer erfolgreich angelegt!\n\n` +
-            `Benutzername: ${username}\n` +
-            `Passwort: ${generatedPassword}\n\n` +
-            `⚠️ WICHTIG: Notieren Sie sich das Passwort jetzt!\n` +
-            `Es wird nicht nochmal angezeigt.\n\n` +
-            `✓ User in Firebase DB gespeichert\n` +
-            `✓ Login funktioniert von jedem Gerät!`);
+      alert('Benutzer erfolgreich angelegt!\n\n' +
+            'E-Mail: ' + email + '\n' +
+            'Passwort: ' + generatedPassword + '\n\n' +
+            'WICHTIG: Passwort jetzt notieren und sicher übermitteln –\n' +
+            'es wird nicht noch einmal angezeigt.');
     }, 100);
   }
 
   closeModal('modal-auth-edit');
   renderAuthUsersList();
-  toast(_editingAuthUserId ? 'Benutzer aktualisiert' : 'Benutzer angelegt', 'success');
+  toast('Benutzer angelegt', 'success');
+}
+
+async function sendAuthUserReset() {
+  if (!_editingAuthUserId) return;
+  const profile = getProfiles().find(p => p.id === _editingAuthUserId);
+  if (!profile?.email) return;
+  try {
+    await fbAuthSendPasswordReset(profile.email);
+    toast('Passwort-Reset-E-Mail an ' + profile.email + ' gesendet', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
 }
 
 function deleteAuthUser(userId) {
-  const users = loadAuthUsers();
-  const u = users.find(x => x.id === userId);
-  if (!u) return;
-  // Letzten Admin schützen
-  const adminCount = users.filter(x => x.role === 'admin' && x.active !== false).length;
-  if (u.role === 'admin' && adminCount <= 1) {
+  const profile = getProfiles().find(p => p.id === userId);
+  if (!profile) return;
+  const admins = getProfiles().filter(p => !p.deleted && p.role === 'admin' && p.active !== false);
+  if (profile.role === 'admin' && admins.length <= 1) {
     toast('Mindestens ein Admin muss vorhanden bleiben!', 'error');
     return;
   }
-  showConfirm(`Benutzer "${u.name || u.username}" wirklich löschen?`, () => {
-    const updated = users.filter(x => x.id !== userId);
-    saveAuthUsers(updated);
+  showConfirm(`Benutzer "${profile.name || profile.email}" wirklich löschen? Das Firebase-Konto muss zusätzlich in der Firebase-Konsole gelöscht oder deaktiviert werden (SETUP.md).`, () => {
+    profile.deleted = true;
+    profile.active  = false;
+    save();
     renderAuthUsersList();
     toast('Benutzer gelöscht');
   });
 }
 
-// ── Start: Login-Screen oder App zeigen ──────────────────
+// ── Start: Session wiederherstellen oder Login zeigen ─────
 async function authInit() {
-  // Remote Auth-User laden bevor Login-Screen erscheint
-  await authLoadRemoteUsers();
-  await ensureDefaultAdmin();
-  const session = checkSession();
-  if (session) {
-    currentUser = session;
-    showApp();
-  } else {
-    setTimeout(() => document.getElementById('login-username')?.focus(), 100);
+  _renderLoginSetupState();
+
+  let storedAuth = null, cachedSession = null;
+  try { storedAuth   = JSON.parse(localStorage.getItem(FB_AUTH_STORE) || 'null'); } catch(e) {}
+  try { cachedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) {}
+
+  if (storedAuth?.refreshToken && fbAuthConfigured()) {
+    try {
+      await fbAuthRefresh();
+      const profile = await _loadOrCreateOwnProfile();
+      if (profile.active === false || profile.deleted) {
+        const e = new Error('Konto deaktiviert'); e.authRevoked = true; throw e;
+      }
+      _adoptProfileLocally(profile);
+      setSession(profile);
+      showApp();
+      if (typeof syncAutoInit === 'function') syncAutoInit();
+      return;
+    } catch(e) {
+      if (e.authRevoked) {
+        fbAuthSignOut();
+        clearSession();
+      } else if (cachedSession) {
+        // Firebase nicht erreichbar → Offline-Modus mit lokalen Daten
+        _fbAuthOffline = true;
+        currentUser = cachedSession;
+        showApp();
+        if (typeof syncBarSet === 'function') syncBarSet('error', 'Offline – keine Synchronisation');
+        if (typeof toast === 'function') toast('Offline-Modus: Änderungen werden synchronisiert, sobald Firebase wieder erreichbar ist', 'error');
+        _fbAuthRetryOnline();
+        return;
+      }
+    }
   }
+
+  setTimeout(() => document.getElementById('login-username')?.focus(), 100);
 }
 
-authInit();
+// Im Offline-Modus regelmäßig versuchen, wieder online zu kommen
+function _fbAuthRetryOnline() {
+  clearTimeout(_fbAuthRetryTimer);
+  _fbAuthRetryTimer = setTimeout(async () => {
+    if (!_fbAuthOffline) return;
+    try {
+      await fbAuthRefresh();
+      if (typeof toast === 'function') toast('Wieder online – Synchronisation gestartet', 'success');
+      if (typeof syncAutoInit === 'function') syncAutoInit();
+    } catch(e) {
+      _fbAuthRetryOnline();
+    }
+  }, 60000);
+}
+
+window.addEventListener('DOMContentLoaded', () => { authInit(); });
 </script>
 
 <script>
@@ -4774,6 +4668,7 @@ const DB = {
   activities: [],
   tasks: [],
   users: [],
+  profiles: [],   // Benutzerprofile (Rollen/Abteilungen) zu den Firebase-Konten
   lists: {
     industries: ['Automotive','Chemie / Pharma','Logistik','Maschinenbau','Lebensmittel','Elektronik','Energie','Beschlagsindustrie','Bauwirtschaft','Immobilien','IT / Rechenzentrum','Öffentliche Hand','Handel / Retail','Gesundheitswesen','Sonstige'],
     sources: ['Eigenrecherche','Empfehlung','Messe','Kaltakquise','Website','LinkedIn','Xing','Netzwerk','Sonstiges']
@@ -4797,9 +4692,19 @@ function checkStorage() {
   try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); _storageAvailable = true; } catch(e) { _storageAvailable = false; }
 }
 
+let _quotaWarned = false;
 function saveLocal() {
   if (!_storageAvailable) return;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); } catch(e) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+    _quotaWarned = false;
+  } catch(e) {
+    console.error('[Storage] Speichern fehlgeschlagen:', e.message);
+    if (!_quotaWarned && typeof toast === 'function') {
+      _quotaWarned = true;
+      toast('Lokaler Speicher voll – Änderungen können nicht gesichert werden! Bitte Backup exportieren.', 'error');
+    }
+  }
 }
 
 // Main save – always local, plus push to JSONBin when configured
@@ -4820,6 +4725,7 @@ function load() {
         DB.activities = d.activities || [];
         DB.tasks      = d.tasks      || [];
         DB.users      = d.users      || [];
+        DB.profiles   = d.profiles   || [];
         DB.settings   = d.settings   || {};
         if (d.lists) {
           DB.lists.industries = d.lists.industries || DB.lists.industries;
@@ -4833,262 +4739,483 @@ function load() {
 }
 
 // ══════════════════════════════════════════════════════════
-// FIREBASE REALTIME DATABASE SYNC ENGINE
-// ══════════════════════════════════════════════════════════
-// Konfiguration: Einmal in den Einstellungen hinterlegen
-// Kein API-Key-Chaos, kein Bin-Splitting, kein CORS-Problem
+// FIREBASE SYNC ENGINE v2 – datensatzbasiert (v25)
+// · Jeder Datensatz trägt updatedAt; gepusht wird nur, was sich
+//   seit dem letzten Sync geändert hat (ein Multi-Path-PATCH).
+// · Löschungen werden als Tombstones ({deleted:true}) gespeichert,
+//   damit alte Gerätestände sie nicht wiederbeleben.
+// · Beim Pull gewinnt pro Datensatz die neuere Version; lokal
+//   noch nicht gesyncte Änderungen werden nie überschrieben.
+// · Echtzeit über EventSource-Stream auf crm2/meta, Polling nur
+//   als Sicherheitsnetz.
+// · Zugriff ausschließlich mit Firebase-Auth-ID-Token; die
+//   Security Rules verlangen "auth != null" (SETUP.md).
 // ══════════════════════════════════════════════════════════
 
-const FB_CFG_KEY = 'prosales_firebase_cfg';
-
-// ── Fest eingebettete Firebase-URL ───────────────────────
+const FB_CFG_KEY     = 'prosales_firebase_cfg';
 const FB_DEFAULT_URL = 'https://crm-issel-default-rtdb.europe-west1.firebasedatabase.app';
-const FB_SECRET      = 'IssEL-CRM-2024-s3cur3-t0ken-xK9mP';  // Geheimer Zugriffstoken
+const FB_ROOT        = 'crm2';   // neue Struktur; 'crm' = Altbestand (wird einmalig migriert)
+const FB_SHADOW_KEY  = 'prosales_sync_shadow_v2';
+const FB_COLLECTIONS = ['contacts','deals','tasks','activities','users','profiles'];
+const FB_POLL_MS        = 120000;              // Fallback-Polling (Stream ist primär)
+const FB_PUSH_DELAY     = 1200;                // Debounce nach Änderungen
+const FB_TOMBSTONE_TTL  = 30 * 24 * 3600 * 1000; // Tombstones nach 30 Tagen aufräumen
+const FB_TOMB           = '!TOMB:';       // Shadow-Marker für bestätigte Löschungen
 
-let _fbUrl    = FB_DEFAULT_URL;
-let _fbTs     = 0;
+let _fbUrl        = FB_DEFAULT_URL;
+let _fbTs         = 0;
 let _fbPushTimer  = null;
 let _fbPollTimer  = null;
+let _fbPullTimer  = null;
 let _fbPushing    = false;
-let _fbLastPush   = 0;
+let _fbPulling    = false;
 let _fbActive     = false;
-const FB_POLL_MS  = 45000;  // 45 Sekunden
-const FB_PUSH_DELAY = 1200; // 1.2 Sekunden Debounce
+let _fbStream     = null;
+let _fbShadow     = null;   // Stand des letzten erfolgreichen Syncs (pro Datensatz JSON)
 
-// ── Konfiguration laden / speichern ──────────────────────
+// ── Konfiguration (nur Timestamp/URL) ─────────────────────
 function fbLoadConfig() {
   try {
-    const raw = localStorage.getItem(FB_CFG_KEY);
-    if (raw) {
-      const cfg = JSON.parse(raw);
-      _fbUrl = cfg.url || FB_DEFAULT_URL;
-      _fbTs  = cfg.ts  || 0;
-    } else {
-      _fbUrl = FB_DEFAULT_URL;
-      _fbTs  = 0;
-    }
+    const cfg = JSON.parse(localStorage.getItem(FB_CFG_KEY) || '{}');
+    _fbUrl = cfg.url || FB_DEFAULT_URL;
+    _fbTs  = cfg.ts  || 0;
   } catch(e) {
     _fbUrl = FB_DEFAULT_URL;
+    _fbTs  = 0;
   }
-  return true; // immer konfiguriert
 }
 
 function fbSaveConfig() {
-  localStorage.setItem(FB_CFG_KEY, JSON.stringify({ url: _fbUrl, ts: _fbTs }));
+  try { localStorage.setItem(FB_CFG_KEY, JSON.stringify({ url: _fbUrl, ts: _fbTs })); } catch(e) {}
 }
 
-function fbIsConfigured() { return !!_fbUrl; }
+// Sync ist nutzbar, sobald ein gültiges Auth-Token vorliegt
+function fbIsConfigured() { return !!(typeof fbAuthToken === 'function' && fbAuthToken()); }
 
-// ── REST-Helfer ───────────────────────────────────────────
-async function fbGet(path) {
-  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return await res.json();
-}
+// ── REST-Helfer (mit einmaligem Token-Refresh bei 401) ────
+function fbKey(id) { return String(id).replace(/[.#$\/\[\]]/g, '_'); }
 
-async function fbPut(path, data) {
-  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
+async function _fbFetch(path, opts, absolute) {
+  const token = fbAuthToken();
+  if (!token) throw new Error('Nicht angemeldet');
+  const rel = absolute ? path : (path ? FB_ROOT + '/' + path : FB_ROOT);
+  const url = () => `${_fbUrl}/${rel}.json?auth=${encodeURIComponent(fbAuthToken())}`;
+  let res = await fetch(url(), Object.assign({ cache: 'no-store' }, opts));
+  if (res.status === 401) {
+    await fbAuthRefresh();
+    res = await fetch(url(), Object.assign({ cache: 'no-store' }, opts));
+  }
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res;
 }
 
+async function fbGet(path)        { return (await _fbFetch(path)).json(); }
+async function fbGetLegacy(path)  { return (await _fbFetch(path, null, true)).json(); }
+async function fbPut(path, data)  {
+  return _fbFetch(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+}
 async function fbPatch(path, data) {
-  const res = await fetch(`${_fbUrl}/${path}.json?auth=${FB_SECRET}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+  return _fbFetch(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+}
+
+// ── Shadow: Stand des letzten erfolgreichen Syncs ─────────
+function _shadowLoad() {
+  if (!_fbShadow) {
+    try { _fbShadow = JSON.parse(localStorage.getItem(FB_SHADOW_KEY) || 'null'); } catch(e) { _fbShadow = null; }
+  }
+  if (!_fbShadow || typeof _fbShadow !== 'object') _fbShadow = {};
+  FB_COLLECTIONS.forEach(c => { if (!_fbShadow[c] || typeof _fbShadow[c] !== 'object') _fbShadow[c] = {}; });
+  return _fbShadow;
+}
+
+function _shadowSave() {
+  try { localStorage.setItem(FB_SHADOW_KEY, JSON.stringify(_fbShadow)); }
+  catch(e) { console.warn('[FB] Shadow nicht speicherbar:', e.message); }
+}
+
+function _shadowReset() {
+  _fbShadow = {};
+  FB_COLLECTIONS.forEach(c => { _fbShadow[c] = {}; });
+  _shadowSave();
+}
+
+function _dbCollection(col) {
+  if (typeof DB === 'undefined') return [];
+  if (!Array.isArray(DB[col])) DB[col] = [];
+  return DB[col];
+}
+
+// Geänderte Datensätze mit Bearbeitungszeit stempeln.
+// Läuft bei jedem save()/syncPush – damit trägt updatedAt die
+// tatsächliche Editierzeit, nicht erst die Push-Zeit.
+function _stampDirtyRecords() {
+  const shadow = _shadowLoad();
+  const ts = Date.now();
+  FB_COLLECTIONS.forEach(col => {
+    _dbCollection(col).forEach(rec => {
+      if (!rec || rec.id === undefined || rec.id === null) return;
+      const key = fbKey(rec.id);
+      const prev = shadow[col][key];
+      if (prev === undefined) { if (!rec.updatedAt) rec.updatedAt = ts; return; }
+      if (typeof prev === 'string' && !prev.startsWith(FB_TOMB) && prev !== JSON.stringify(rec)) {
+        rec.updatedAt = ts;
+      }
+    });
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res;
 }
 
 // ── PUSH ─────────────────────────────────────────────────
 function syncPush() {
   if (!fbIsConfigured()) return;
+  _stampDirtyRecords();
   clearTimeout(_fbPushTimer);
-  _fbPushTimer = setTimeout(_fbDoPush, FB_PUSH_DELAY);
+  _fbPushTimer = setTimeout(() => _fbDoPush(), FB_PUSH_DELAY);
 }
 
-async function _fbDoPush() {
-  if (_fbPushing) { console.log('[FB] Push läuft – übersprungen'); return; }
+// Sammelt alle Abweichungen gegenüber dem Shadow als Multi-Path-Patch.
+// Shadow-Übernahme erst NACH erfolgreichem Push (shadowUpdates).
+function _collectChanges(ts) {
+  const shadow = _shadowLoad();
+  const patch = {};
+  const shadowUpdates = [];
+  let changes = 0;
+
+  FB_COLLECTIONS.forEach(col => {
+    const seen = new Set();
+    _dbCollection(col).forEach(rec => {
+      if (!rec || rec.id === undefined || rec.id === null) return;
+      const key = fbKey(rec.id);
+      seen.add(key);
+      const cur = JSON.stringify(rec);
+      if (shadow[col][key] === cur) return;
+      if (!rec.updatedAt) rec.updatedAt = ts;
+      patch[col + '/' + key] = rec;
+      shadowUpdates.push({ col, key, val: JSON.stringify(rec) });
+      changes++;
+    });
+    Object.keys(shadow[col]).forEach(key => {
+      if (seen.has(key)) return;
+      const v = shadow[col][key];
+      if (typeof v === 'string' && v.startsWith(FB_TOMB)) {
+        // Alte Tombstones nach Ablauf der TTL endgültig entfernen
+        const t = parseInt(v.slice(FB_TOMB.length), 10) || 0;
+        if (ts - t > FB_TOMBSTONE_TTL) {
+          patch[col + '/' + key] = null;
+          shadowUpdates.push({ col, key, val: undefined });
+          changes++;
+        }
+        return;
+      }
+      // Lokal gelöscht → Tombstone schreiben
+      patch[col + '/' + key] = { id: key, deleted: true, updatedAt: ts };
+      shadowUpdates.push({ col, key, val: FB_TOMB + ts });
+      changes++;
+    });
+  });
+
+  const listsJson = JSON.stringify(DB.lists || {});
+  if (shadow._lists !== listsJson) {
+    DB.lists.updatedAt = ts;
+    patch['lists'] = DB.lists;
+    shadowUpdates.push({ col: '_lists', key: null, val: JSON.stringify(DB.lists) });
+    changes++;
+  }
+
+  return { patch, shadowUpdates, changes };
+}
+
+async function _fbDoPush(forceMeta) {
+  if (!fbIsConfigured()) return;
+  if (_fbPushing) { clearTimeout(_fbPushTimer); _fbPushTimer = setTimeout(() => _fbDoPush(forceMeta), FB_PUSH_DELAY); return; }
   _fbPushing = true;
-  syncBarSet('syncing', 'Speichert...');
   const ts = Date.now();
-
   try {
-    // Kontakte als Objekt (key = contact.id) – kein Größenlimit
-    const contactsObj = {};
-    DB.contacts.forEach(c => { contactsObj[c.id.replace(/[.#$/[\]]/g,'_')] = c; });
+    _stampDirtyRecords();
+    const { patch, shadowUpdates, changes } = _collectChanges(ts);
+    if (!changes && !forceMeta) return;
 
-    // Meta-Daten (alles außer Kontakte)
-    const meta = {
-      deals:      DB.deals,
-      activities: DB.activities,
-      tasks:      DB.tasks,
-      users:      DB.users,
-      lists:      DB.lists,
-      authUsers:  loadAuthUsers(),
-      _ts:        ts
-    };
+    syncBarSet('syncing', 'Speichert…');
+    patch['meta'] = { _ts: ts, by: (typeof fbAuthUid === 'function' && fbAuthUid()) || '' };
+    await fbPatch('', patch);
 
-    // Parallel speichern
-    await Promise.all([
-      fbPut('crm/contacts', contactsObj),
-      fbPut('crm/meta',     meta)
-    ]);
+    const shadow = _shadowLoad();
+    shadowUpdates.forEach(u => {
+      if (u.col === '_lists') { shadow._lists = u.val; return; }
+      if (u.val === undefined) delete shadow[u.col][u.key];
+      else shadow[u.col][u.key] = u.val;
+    });
+    _shadowSave();
+    saveLocal();   // gestempelte updatedAt-Werte mitsichern
 
-    _fbTs      = ts;
-    _fbLastPush = Date.now();
-    _fbActive  = true;
-    _fbPushing = false;
+    _fbTs = ts;
+    _fbActive = true;
     fbSaveConfig();
     syncBarSet('connected', 'Gespeichert');
     syncSetTs();
-    console.log(`[FB] Push OK: ${DB.contacts.length} Kontakte`);
-
+    console.log(`[FB] Push OK: ${changes} Änderung(en)`);
   } catch(err) {
-    _fbPushing = false;
     syncBarSet('error', 'Sync-Fehler: ' + err.message);
     console.warn('[FB] Push error:', err.message);
+  } finally {
+    _fbPushing = false;
   }
 }
 
-// ── REMOTE DATA ANWENDEN ──────────────────────────────────
-function applyRemoteData(remote) {
-  try {
-    console.log('[FB] Wende Remote-Daten an...');
-    
-    // Kontakte übernehmen
-    if (remote.contacts && Array.isArray(remote.contacts)) {
-      DB.contacts = remote.contacts;
-      console.log(`[FB] ${DB.contacts.length} Kontakte geladen`);
+// ── MERGE (pro Datensatz, neuere Version gewinnt) ─────────
+// Pure Funktion – wird von tests/sync-merge.test.mjs getestet.
+function _mergeRecords(localArr, remoteObj, shadowCol) {
+  const merged = [];
+  let changed = false;
+  const remote = remoteObj || {};
+  const localByKey = new Map();
+  (localArr || []).forEach(rec => {
+    if (rec && rec.id !== undefined && rec.id !== null) localByKey.set(fbKey(rec.id), rec);
+  });
+  const handled = new Set();
+
+  Object.keys(remote).forEach(key => {
+    const r = remote[key];
+    handled.add(key);
+    if (!r || typeof r !== 'object') return;
+    const local     = localByKey.get(key);
+    const remoteJson = JSON.stringify(r);
+    const shadowVal  = shadowCol[key];
+
+    if (r.deleted) {
+      const tombVal = FB_TOMB + (r.updatedAt || 0);
+      if (local === undefined) { shadowCol[key] = tombVal; return; }
+      const localDirty = shadowVal !== JSON.stringify(local);
+      if (localDirty && (local.updatedAt || 0) > (r.updatedAt || 0)) {
+        merged.push(local);   // lokale Änderung ist neuer als die Löschung → bleibt (wird re-published)
+      } else {
+        shadowCol[key] = tombVal;
+        changed = true;
+      }
+      return;
     }
-    
-    // Deals übernehmen
-    if (remote.deals && Array.isArray(remote.deals)) {
-      DB.deals = remote.deals;
+
+    if (local === undefined) {
+      if (typeof shadowVal === 'string' && shadowVal.startsWith(FB_TOMB)) {
+        // Lokal bereits als gelöscht bestätigt – nur wiederbeleben, wenn remote danach geändert
+        const tombTs = parseInt(shadowVal.slice(FB_TOMB.length), 10) || 0;
+        if ((r.updatedAt || 0) > tombTs) { merged.push(r); shadowCol[key] = remoteJson; changed = true; }
+        return;
+      }
+      if (shadowVal !== undefined && shadowVal === remoteJson) {
+        return;   // lokale, noch nicht gepushte Löschung → gelöscht lassen
+      }
+      merged.push(r);
+      shadowCol[key] = remoteJson;
+      changed = true;
+      return;
     }
-    
-    // Activities übernehmen
-    if (remote.activities && Array.isArray(remote.activities)) {
-      DB.activities = remote.activities;
+
+    const localJson  = JSON.stringify(local);
+    const localDirty = shadowVal !== localJson;
+    if (!localDirty) {
+      if (remoteJson !== localJson) { merged.push(r); shadowCol[key] = remoteJson; changed = true; }
+      else { merged.push(local); shadowCol[key] = remoteJson; }
+      return;
     }
-    
-    // Tasks übernehmen
-    if (remote.tasks && Array.isArray(remote.tasks)) {
-      DB.tasks = remote.tasks;
+    // Beide Seiten geändert → neuere Version gewinnt
+    if ((r.updatedAt || 0) > (local.updatedAt || 0)) {
+      merged.push(r);
+      shadowCol[key] = remoteJson;
+      changed = true;
+    } else {
+      merged.push(local);   // lokal bleibt, geht mit dem nächsten Push raus
     }
-    
-    // Users übernehmen
-    if (remote.users && Array.isArray(remote.users)) {
-      DB.users = remote.users;
-    }
-    
-    // Lists übernehmen
-    if (remote.lists && Array.isArray(remote.lists)) {
-      DB.lists = remote.lists;
-    }
-    
-    // Auth Users übernehmen
-    if (remote.authUsers && Array.isArray(remote.authUsers)) {
-      saveAuthUsers(remote.authUsers);
-    }
-    
-    // Timestamp übernehmen
-    if (remote._ts) {
-      _fbTs = remote._ts;
-    }
-    
-    // Speichern
-    save();
-    
-    console.log('[FB] Remote-Daten erfolgreich angewendet');
-    
-  } catch (error) {
-    console.error('[FB] Fehler beim Anwenden der Remote-Daten:', error);
-  }
+  });
+
+  // Lokale Datensätze, die remote (noch) nicht existieren → behalten
+  localByKey.forEach((rec, key) => {
+    if (!handled.has(key)) merged.push(rec);
+  });
+
+  return { merged, changed };
 }
 
-// ── POLL ─────────────────────────────────────────────────
-async function _fbDoPoll() {
-  if (!fbIsConfigured()) return;
-  if (_fbPushing) { return; }
-  if (Date.now() - _fbLastPush < 15000) { return; }
+function _mergeRemote(remote) {
+  const shadow = _shadowLoad();
+  let changedLocal = false;
 
+  FB_COLLECTIONS.forEach(col => {
+    const { merged, changed } = _mergeRecords(_dbCollection(col), remote[col], shadow[col]);
+    DB[col] = merged;
+    if (changed) changedLocal = true;
+  });
+
+  // Listen (Branchen/Quellen): neuere Version gewinnt
+  if (remote.lists && typeof remote.lists === 'object') {
+    const remoteJson = JSON.stringify(remote.lists);
+    const localJson  = JSON.stringify(DB.lists || {});
+    const localDirty = shadow._lists !== undefined && shadow._lists !== localJson;
+    if (remoteJson !== localJson) {
+      if (!localDirty || (remote.lists.updatedAt || 0) > (DB.lists?.updatedAt || 0)) {
+        DB.lists = remote.lists;
+        shadow._lists = remoteJson;
+        changedLocal = true;
+      }
+    } else {
+      shadow._lists = remoteJson;
+    }
+  }
+
+  return changedLocal;
+}
+
+// ── PULL ─────────────────────────────────────────────────
+async function syncPull(force) {
+  if (!fbIsConfigured() || _fbPulling) return;
+  _fbPulling = true;
   try {
-    const remote = await fbGet('crm/meta');
-    if (!remote) return;
+    const meta = await fbGet('meta');
 
-    const remoteTs    = remote._ts || 0;
-    const localTs     = _fbTs;
-    const localCount  = DB.contacts.length;
+    if (!meta || !meta._ts) {
+      // Neue Struktur ist leer → Altbestand migrieren, lokalen Stand hochladen
+      _shadowReset();
+      await _fbMigrateLegacy();
+      await _fbDoPush(true);
+      _fbPulling = false;
+      _updateModalConnectedState();
+      return;
+    }
 
-    // Remote nicht neuer → nichts tun
-    if (remoteTs > 0 && remoteTs <= localTs) {
+    if (!force && meta._ts === _fbTs) {
+      _fbActive = true;
       syncBarSet('connected', 'Aktuell');
       syncSetTs();
-      _fbActive = true;
+      _fbPulling = false;
+      syncPush();   // evtl. lokale Änderungen anstoßen (no-op wenn sauber)
       return;
     }
 
-    // Frische Session MIT lokalen Daten → lokal hochladen
-    if (localTs === 0 && localCount > 0) {
-      console.log(`[FB] Frische Session, ${localCount} Kontakte → Push`);
-      _fbTs = remoteTs;
-      await _fbDoPush();
-      return;
-    }
-
-    // Kontakte aus Firebase laden
-    const remoteContactsObj = await fbGet('crm/contacts');
-    const remoteContacts = remoteContactsObj
-      ? Object.values(remoteContactsObj)
-      : [];
-    const remoteCount = remoteContacts.length;
-
-    // Frische Session OHNE lokale Daten → remote laden
-    if (localTs === 0 && localCount === 0) {
-      applyRemoteData({ ...remote, contacts: remoteContacts });
-      syncBarSet('connected', 'Daten geladen');
-      syncSetTs();
-      _fbActive = true;
-      return;
-    }
-
-    // Lokal hat mehr Kontakte → lokal gewinnt immer
-    if (localCount > remoteCount) {
-      console.warn(`[FB] Lokal (${localCount}) > Remote (${remoteCount}) → Push`);
-      _fbTs = remoteTs;
-      await _fbDoPush();
-      return;
-    }
-
-    // Remote ist neuer und hat mindestens genauso viele → übernehmen
-    applyRemoteData({ ...remote, contacts: remoteContacts });
-    syncBarSet('connected', 'Aktualisiert');
-    syncSetTs();
+    const remote = await fbGet('');
+    const changedLocal = _mergeRemote(remote || {});
+    _fbTs = (remote && remote.meta && remote.meta._ts) || meta._ts;
     _fbActive = true;
+    fbSaveConfig();
+    _shadowSave();
 
+    if (changedLocal) {
+      saveLocal();
+      syncAuthUsersToCrmUsers(false);
+      _refreshActivePage();
+    }
+    syncBarSet('connected', changedLocal ? 'Aktualisiert' : 'Aktuell');
+    syncSetTs();
+    syncPush();   // lokale (noch nicht gesyncte) Änderungen hochladen
   } catch(err) {
-    console.warn('[FB] Poll error:', err.message);
+    console.warn('[FB] Pull error:', err.message);
     if (_fbActive) syncBarSet('error', 'Sync-Fehler: ' + err.message);
+  } finally {
+    _fbPulling = false;
+    _updateModalConnectedState();
   }
 }
 
-// ── Polling starten ───────────────────────────────────────
+// Altbestand (crm/…, Komplett-Überschreib-Modell) einmalig übernehmen
+async function _fbMigrateLegacy() {
+  try {
+    const [meta, contactsObj] = await Promise.all([
+      fbGetLegacy('crm/meta').catch(() => null),
+      fbGetLegacy('crm/contacts').catch(() => null)
+    ]);
+    if (!meta && !contactsObj) return false;
+
+    const ts = (meta && meta._ts) || Date.now();
+    const asRecords = arr => (Array.isArray(arr) ? arr : []).filter(r => r && r.id !== undefined && r.id !== null);
+    const legacy = {
+      contacts:   contactsObj ? Object.values(contactsObj).filter(r => r && r.id !== undefined && r.id !== null) : [],
+      deals:      asRecords(meta?.deals),
+      tasks:      asRecords(meta?.tasks),
+      activities: asRecords(meta?.activities),
+      users:      asRecords(meta?.users),
+      profiles:   []
+    };
+
+    FB_COLLECTIONS.forEach(col => {
+      const localKeys = new Set(_dbCollection(col).map(r => fbKey(r.id)));
+      legacy[col].forEach(r => {
+        if (!r.updatedAt) r.updatedAt = ts;
+        if (!localKeys.has(fbKey(r.id))) DB[col].push(r);
+      });
+    });
+    if (meta && meta.lists && typeof meta.lists === 'object') {
+      DB.lists = Object.assign({}, DB.lists, meta.lists);
+    }
+    saveLocal();
+    console.log('[FB] Altbestand aus crm/ übernommen – wird in die neue Struktur hochgeladen');
+    return true;
+  } catch(e) {
+    console.warn('[FB] Migration fehlgeschlagen:', e.message);
+    return false;
+  }
+}
+
+// ── ECHTZEIT-STREAM (EventSource auf crm2/meta) ───────────
+function _schedulePull() {
+  clearTimeout(_fbPullTimer);
+  _fbPullTimer = setTimeout(() => syncPull(), 400);
+}
+
+function _fbStopStream() {
+  if (_fbStream) { try { _fbStream.close(); } catch(e) {} _fbStream = null; }
+}
+
+function _fbStartStream() {
+  _fbStopStream();
+  const token = fbAuthToken();
+  if (!token || typeof EventSource === 'undefined') { _startPolling(); return; }
+  try {
+    _fbStream = new EventSource(`${_fbUrl}/${FB_ROOT}/meta.json?auth=${encodeURIComponent(token)}`);
+    const onData = e => {
+      try {
+        const payload = JSON.parse(e.data);
+        const d  = payload && payload.data;
+        const ts = (d && typeof d === 'object') ? d._ts : (typeof d === 'number' ? d : null);
+        if (ts === null || ts === undefined || ts !== _fbTs) _schedulePull();
+      } catch(err) { _schedulePull(); }
+    };
+    _fbStream.addEventListener('put', onData);
+    _fbStream.addEventListener('patch', onData);
+    _fbStream.addEventListener('auth_revoked', () => {
+      _fbStopStream();
+      fbAuthRefresh().then(() => _fbStartStream()).catch(() => {});
+    });
+    // Bei Fehlern reconnectet EventSource selbst; Polling läuft als Netz
+  } catch(e) {
+    console.warn('[FB] Stream nicht verfügbar, nutze Polling:', e.message);
+  }
+  _startPolling();
+}
+
+// Vom Auth-System nach jedem Token-Refresh aufgerufen
+function _fbOnAuthTokenChanged() {
+  if (_fbActive && _fbStream) _fbStartStream();
+}
+
+// ── Polling (Sicherheitsnetz) ─────────────────────────────
 function _startPolling() {
   clearInterval(_fbPollTimer);
-  _fbPollTimer = setInterval(_fbDoPoll, FB_POLL_MS);
+  _fbPollTimer = setInterval(() => syncPull(), FB_POLL_MS);
+}
+
+// ── Aktive Seite nach Remote-Änderungen neu rendern ───────
+function _refreshActivePage() {
+  const page = document.querySelector('.page.active');
+  if (!page) return;
+  const name = page.id.replace('page-', '');
+  if (name === 'akte') return;   // wird von showAkte gerendert
+  try { showPage(name); } catch(e) { console.warn('[FB] UI-Refresh fehlgeschlagen:', e.message); }
+  if (typeof updateTaskBadge === 'function') updateTaskBadge();
+  if (typeof updateTeamBadge === 'function') updateTeamBadge();
 }
 
 // ── Timestamp anzeigen ────────────────────────────────────
 function syncSetTs() {
   const el = document.getElementById('sync-ts');
-  if (el && _fbTs) el.textContent = 'Zuletzt: ' + new Date(_fbTs).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+  if (el && _fbTs) el.textContent = 'Zuletzt: ' + new Date(_fbTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 // ── Status-Bar ────────────────────────────────────────────
@@ -5102,93 +5229,32 @@ function syncBarSet(state, msg) {
   if (label) label.textContent = msg;
 }
 
-// ── Auto-Init ─────────────────────────────────────────────
+// ── Auto-Init (nach erfolgreichem Login) ──────────────────
 function syncAutoInit() {
-  // Immer die eingebettete URL verwenden – kein manuelles Einrichten nötig
-  fbLoadConfig(); // lädt gespeicherten Timestamp, setzt _fbUrl auf FB_DEFAULT_URL
-  syncBarSet('syncing', 'Verbinde...');
-  _fbDoPoll().then(() => {
-    _startPolling();
+  if (!fbIsConfigured()) { syncBarSet('error', 'Nicht angemeldet'); return; }
+  fbLoadConfig();
+  syncBarSet('syncing', 'Verbinde…');
+  syncPull(true).then(() => {
+    _fbStartStream();
     _updateModalConnectedState();
   });
 }
 
-// ── Manueller Sync ───────────────────────────────────────
-function syncNow() {
-  syncBarSet('syncing', 'Synchronisiert...');
-  _fbDoPoll();
-  closeModal('modal-sync');
-}
-
-// ── Verbinden ────────────────────────────────────────────
-async function syncConnect() {
-  const urlInput = document.getElementById('fb-url');
-  const url = (urlInput?.value || '').trim().replace(/\/$/, '');
-
-  if (!url || (!url.includes('firebaseio.com') && !url.includes('firebasedatabase.app'))) {
-    _fbStatusMsg('Bitte gültige Firebase-URL eingeben (z.B. https://...firebasedatabase.app)', 'error');
-    return;
-  }
-
-  _fbStatusMsg('Verbinde mit Firebase...', 'info');
-  syncBarSet('syncing', 'Verbinde...');
-  _fbUrl = url;
-
-  try {
-    // Test-Lesezugriff
-    const res = await fetch(`${_fbUrl}/crm/meta.json?auth=${FB_SECRET}`, { cache: 'no-store' });
-    if (res.status === 401 || res.status === 403) {
-      throw new Error('Zugriff verweigert – bitte Firebase-Regeln auf "Öffentlich" setzen');
-    }
-
-    const remote = (res.status === 200) ? await res.json() : null;
-
-    if (remote && remote._ts) {
-      // Firebase hat bereits Daten
-      _fbTs = 0; // frische Session → _fbDoPoll entscheidet
-      await _fbDoPoll();
-      _fbStatusMsg('Verbunden! Daten synchronisiert.', 'ok');
-    } else {
-      // Leere Datenbank → unsere Daten hochladen
-      _fbTs = 0;
-      await _fbDoPush();
-      _fbStatusMsg('Verbunden! Lokale Daten hochgeladen.', 'ok');
-    }
-
-    fbSaveConfig();
-    _fbActive = true;
-    _startPolling();
-    _updateModalConnectedState();
-
-  } catch(err) {
-    syncBarSet('error', 'Verbindung fehlgeschlagen');
-    _fbStatusMsg('Fehler: ' + err.message, 'error');
-  }
-}
-
-// ── Trennen ───────────────────────────────────────────────
-function syncDisconnect() {
+// ── Sync stoppen (Logout) ─────────────────────────────────
+function syncStop() {
   clearInterval(_fbPollTimer);
   clearTimeout(_fbPushTimer);
-  _fbUrl = ''; _fbTs = 0; _fbActive = false;
-  localStorage.removeItem(FB_CFG_KEY);
-  syncBarSet('noconfig', 'Sync einrichten');
-  _updateModalConnectedState();
-  toast('Sync getrennt');
+  clearTimeout(_fbPullTimer);
+  _fbStopStream();
+  _fbActive = false;
+  syncBarSet('noconfig', 'Abgemeldet');
 }
 
-// ── Status-Meldung im Modal ───────────────────────────────
-function _fbStatusMsg(msg, type) {
-  const el = document.getElementById('jb-status');
-  if (!el) return;
-  const styles = {
-    ok:    { bg: 'var(--green-light)',  color: 'var(--green)' },
-    error: { bg: 'var(--red-light)',    color: 'var(--red)' },
-    info:  { bg: 'var(--accent-light)', color: 'var(--accent)' }
-  };
-  const s = styles[type] || styles.info;
-  el.style.cssText = `display:block;background:${s.bg};color:${s.color};padding:10px 14px;border-radius:7px;font-size:12.5px;margin-top:12px`;
-  el.textContent = msg;
+// ── Manueller Sync ───────────────────────────────────────
+function syncNow() {
+  syncBarSet('syncing', 'Synchronisiert…');
+  syncPull(true);
+  closeModal('modal-sync');
 }
 
 function _updateModalConnectedState() {
@@ -5209,8 +5275,6 @@ function _updateModalConnectedState() {
 }
 
 function openSyncModal() {
-  const urlEl = document.getElementById('fb-url');
-  if (urlEl && _fbUrl) urlEl.value = _fbUrl;
   const statusEl = document.getElementById('jb-status');
   if (statusEl) statusEl.style.display = 'none';
   _updateModalConnectedState();
@@ -5222,12 +5286,11 @@ function exportLocalData() {
   exportData();
 }
 
-// ── Sync-Konflikt (Fallback) ──────────────────────────────
-function syncResolve(choice) {
+// ── Sync-Konflikt-Bar (Altlast, wird nicht mehr gebraucht) ─
+function syncResolve() {
   const bar = document.getElementById('sync-conflict-bar');
   if (bar) bar.style.display = 'none';
-  if (choice === 'local') { _fbTs = 0; _fbDoPush(); }
-  else _fbDoPoll();
+  syncPull(true);
 }
 
 function showKeyUpdate() { openSyncModal(); }
@@ -5916,7 +5979,7 @@ function renderContacts(list) {
       + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
       + '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="bulkToggle(\'' + c.id + '\')" style="width:15px;height:15px;cursor:pointer" onclick="event.stopPropagation()">'
       + '</td>'
-      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">' + (c.city||'') + (c.contactResult ? ' ' + crBadgeHtml(c.contactResult) : '') + '</div></div></div></td>'
+      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">' + esc(c.city||'') + (c.contactResult ? ' ' + crBadgeHtml(c.contactResult) : '') + '</div></div></div></td>'
       + '<td>' + esc(c.firstname + ' ' + c.lastname) + '</td>'
       + '<td style="font-size:12px;color:var(--text2)">' + esc(c.position||'') + '</td>'
       + '<td><span class="badge badge-gray">' + esc(c.industry||'') + '</span></td>'
@@ -6883,7 +6946,7 @@ function formatDate(d) {
 
 function esc(str) {
   if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -6898,7 +6961,7 @@ function toast(msg, type = '') {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = 'toast ' + type;
-  t.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> ${msg}`;
+  t.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> ${esc(msg)}`;
   c.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; t.style.transition = '0.3s'; setTimeout(() => t.remove(), 300); }, 2500);
 }
@@ -7422,7 +7485,7 @@ function radarAddToContacts(idx) {
   save();
   updateAllContactSelects();
   refreshDashboard();
-  toast(esc(r.company) + ' zum CRM hinzugefügt', 'success');
+  toast(r.company + ' zum CRM hinzugefügt', 'success');
   radarRenderResults(); // Badge aktualisieren
 }
 
@@ -9331,7 +9394,7 @@ function showPbSavePanel(outcome) {
   if (!panel) return;
   const isPositive = outcome === 'positive';
   const c = pbContactId ? DB.contacts.find(x => x.id === pbContactId) : null;
-  const contactName = c ? `${c.company} – ${c.firstname} ${c.lastname}` : null;
+  const contactName = c ? esc(`${c.company} – ${c.firstname} ${c.lastname}`) : null;
   const duration = pbStartTime ? Math.round((new Date() - pbStartTime) / 60000) : 0;
 
   panel.style.display = 'block';
@@ -9621,7 +9684,7 @@ function pbSaveTrigger(saveKey) {
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Betreff</label>
-          <input id="pb-save-subject" type="text" value="${meta.label} – ${c?c.company:'[Kontakt]'}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
+          <input id="pb-save-subject" type="text" value="${meta.label} – ${c?esc(c.company):'[Kontakt]'}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Typ</label>
@@ -10243,21 +10306,18 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // Wird nach jedem Remote-Pull und beim Start aufgerufen.
 // ══════════════════════════════════════════════════════════
 function syncAuthUsersToCrmUsers(shouldSave = true) {
-  const authUsers = (typeof loadAuthUsers === 'function') ? loadAuthUsers() : [];
-  if (!authUsers.length) return;
+  const profiles = (typeof getProfiles === 'function') ? getProfiles().filter(p => p && !p.deleted) : [];
+  if (!profiles.length) return;
 
   let changed = false;
 
-  authUsers.forEach(au => {
-    const displayName = au.name || au.username || 'Unbekannt';
+  profiles.forEach(au => {
+    const displayName = au.name || au.email || 'Unbekannt';
 
-    // Falls auth-User noch keine dbUserId hat → jetzt generieren und speichern
+    // Falls Profil noch keine dbUserId hat → jetzt generieren
     if (!au.dbUserId) {
       au.dbUserId = 'u_' + au.id;
-      // Auth-User-Datensatz aktualisieren
-      const allAuth = loadAuthUsers();
-      const idx = allAuth.findIndex(u => u.id === au.id);
-      if (idx >= 0) { allAuth[idx].dbUserId = au.dbUserId; localStorage.setItem(AUTH_KEY, JSON.stringify(allAuth)); }
+      changed = true;
     }
 
     // Prüfen ob DB.users-Eintrag schon existiert
@@ -10270,7 +10330,7 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
       role:       au.role === 'admin' ? 'Administrator' : 'Mitarbeiter',
       department: au.department || '',
       color:      existingIdx >= 0 ? (DB.users[existingIdx].color || '#1565C0') : '#1565C0',
-      email:      existingIdx >= 0 ? (DB.users[existingIdx].email || '') : '',
+      email:      au.email || (existingIdx >= 0 ? (DB.users[existingIdx].email || '') : ''),
       phone:      existingIdx >= 0 ? (DB.users[existingIdx].phone || '') : '',
       region:     existingIdx >= 0 ? (DB.users[existingIdx].region || '') : '',
       active:     au.active !== false,
@@ -10302,6 +10362,12 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
   }
 }
 
+// Sidebar-Overlay (Mobil) schließen – Handler war zuvor undefiniert
+function toggleMobileMenu() {
+  document.getElementById('sidebar-overlay')?.classList.remove('show');
+  document.getElementById('sidebar')?.classList.remove('mobile-open');
+}
+
 // ── INIT ─────────────────────────────────────────────────
 (function initApp() {
   load();
@@ -10315,7 +10381,7 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
   refreshDashboard();
   updateTaskBadge();
   wvInit();
-  syncAutoInit();
+  // Sync startet erst nach erfolgreichem Login (syncAutoInit in doLogin/authInit)
 
   // Mobile-Nav nur auf echten Touch-Geräten anzeigen (nicht bei schmalen Desktop-Fenstern)
   const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -11372,7 +11438,7 @@ function addModalMarker(lat, lng, label) {
   modalMarker = L.marker([lat, lng], { icon }).addTo(modalMap);
   modalMarker.bindPopup(`
     <div class="map-popup-inner">
-      <strong>${label}</strong>
+      <strong>${esc(label)}</strong>
       <span>${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
     </div>`).openPopup();
 }
