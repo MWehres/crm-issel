@@ -10366,7 +10366,8 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
       // Nur aktualisieren wenn sich etwas geändert hat
       const old = DB.users[existingIdx];
       if (old.name !== dbEntry.name || old.role !== dbEntry.role ||
-          old.department !== dbEntry.department || old.active !== dbEntry.active) {
+          old.department !== dbEntry.department || old.active !== dbEntry.active ||
+          old.email !== dbEntry.email || old.authId !== dbEntry.authId) {
         DB.users[existingIdx] = { ...old, ...dbEntry };
         changed = true;
       }
