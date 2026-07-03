@@ -1274,12 +1274,6 @@ textarea { resize: vertical; min-height: 80px; }
   border-radius: 7px; font-size: 12.5px; margin-top: 12px;
   line-height: 1.55;
 }
-.sync-conflict-bar {
-  display: none;
-  background: var(--orange-light); border: 1px solid var(--orange);
-  border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
-  font-size: 13px; line-height: 1.6; color: #92400e;
-}
 
 /* ══════════════════════════════════════════════════════════
    PWA / MOBILE RESPONSIVE STYLES
@@ -2892,14 +2886,6 @@ input[type="checkbox"]:hover {
     </div>
   </div>
   <div class="content-area">
-    <div class="sync-conflict-bar" id="sync-conflict-bar">
-      <strong>⚠️ Neuere Daten auf dem Server</strong> – Während du offline warst hat ein Teammitglied Änderungen gespeichert.
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-primary btn-sm" onclick="syncResolve('remote')">Server-Version übernehmen</button>
-        <button class="btn btn-secondary btn-sm" onclick="syncResolve('local')">Meine lokale Version hochladen</button>
-      </div>
-    </div>
-
     <!-- ══ DASHBOARD ══ -->
     <div class="page active fade-in" id="page-dashboard">
       <div class="kpi-grid" id="kpi-grid"></div>
@@ -5100,7 +5086,7 @@ async function syncPull(force) {
 
     if (changedLocal) {
       saveLocal();
-      syncAuthUsersToCrmUsers(false);
+      syncAuthUsersToCrmUsers(true);   // Duplikat-Bereinigung wird ggf. mitgesynct
       _refreshActivePage();
     }
     syncBarSet('connected', changedLocal ? 'Aktualisiert' : 'Aktuell');
@@ -5285,13 +5271,6 @@ function openSyncModal() {
 // ── Lokale Daten exportieren ──────────────────────────────
 function exportLocalData() {
   exportData();
-}
-
-// ── Sync-Konflikt-Bar (Altlast, wird nicht mehr gebraucht) ─
-function syncResolve() {
-  const bar = document.getElementById('sync-conflict-bar');
-  if (bar) bar.style.display = 'none';
-  syncPull(true);
 }
 
 function showKeyUpdate() { openSyncModal(); }
@@ -10306,6 +10285,18 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // Hält DB.users immer synchron mit den Login-Accounts.
 // Wird nach jedem Remote-Pull und beim Start aufgerufen.
 // ══════════════════════════════════════════════════════════
+// Namen für den Duplikat-Abgleich normalisieren ("marcel.wehres" ≙ "Marcel Wehres")
+function _normUserName(s) {
+  return String(s || '').toLowerCase().replace(/[._\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Referenzen auf einen Team-Eintrag umhängen (beim Zusammenführen von Duplikaten)
+function _remapUserRefs(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  (DB.tasks || []).forEach(t => { if (t.assignedTo === fromId) t.assignedTo = toId; });
+  (DB.activities || []).forEach(a => { if (a.userId === fromId) a.userId = toId; });
+}
+
 function syncAuthUsersToCrmUsers(shouldSave = true) {
   const profiles = (typeof getProfiles === 'function') ? getProfiles().filter(p => p && !p.deleted) : [];
   if (!profiles.length) return;
@@ -10313,13 +10304,41 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
   let changed = false;
 
   profiles.forEach(au => {
-    const displayName = au.name || au.email || 'Unbekannt';
-
     // Falls Profil noch keine dbUserId hat → jetzt generieren
     if (!au.dbUserId) {
       au.dbUserId = 'u_' + au.id;
       changed = true;
     }
+
+    // ── Duplikat-Abgleich mit Alt-Einträgen (aus v24 migriert) ──
+    // Passt ein unverknüpfter Team-Eintrag per Name/E-Mail zu diesem
+    // Profil, wird er übernommen statt einen zweiten Eintrag anzulegen.
+    const emailLocal = _normUserName((au.email || '').split('@')[0]);
+    const matchesAu = u => !u.authId && (
+      _normUserName(u.name) === _normUserName(au.name) ||
+      (au.email && u.email && u.email.toLowerCase() === au.email.toLowerCase()) ||
+      (emailLocal && _normUserName(u.name) === emailLocal)
+    );
+    const linkedIdx = DB.users.findIndex(u => u.authId === au.id || u.id === au.dbUserId);
+    const legacyIdx = DB.users.findIndex((u, i) => i !== linkedIdx && matchesAu(u));
+
+    if (legacyIdx >= 0) {
+      const keep = DB.users[legacyIdx];
+      // Standard-Name aus der E-Mail durch den gepflegten Alt-Namen ersetzen
+      if (keep.name && (_normUserName(au.name) === emailLocal || !au.name)) au.name = keep.name;
+      if (linkedIdx >= 0) {
+        // Bereits ein neuer Eintrag angelegt → Alt-Eintrag behalten (Historie), neuen entfernen
+        _remapUserRefs(DB.users[linkedIdx].id, keep.id);
+        DB.users.splice(linkedIdx, 1);
+      } else {
+        _remapUserRefs(au.dbUserId, keep.id);
+      }
+      keep.authId  = au.id;
+      au.dbUserId  = keep.id;
+      changed = true;
+    }
+
+    const displayName = au.name || au.email || 'Unbekannt';
 
     // Prüfen ob DB.users-Eintrag schon existiert
     const existingIdx = DB.users.findIndex(u => u.id === au.dbUserId || u.authId === au.id);
