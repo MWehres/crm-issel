@@ -10303,6 +10303,11 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
 
   let changed = false;
 
+  // authId-Werte, die zu keinem aktuellen Firebase-Profil gehören, stammen
+  // noch aus dem v24-Login-System und gelten als unverknüpft.
+  const profileIds = new Set(profiles.map(p => p.id));
+  const isUnlinked = u => !u.authId || !profileIds.has(u.authId);
+
   profiles.forEach(au => {
     // Falls Profil noch keine dbUserId hat → jetzt generieren
     if (!au.dbUserId) {
@@ -10314,7 +10319,7 @@ function syncAuthUsersToCrmUsers(shouldSave = true) {
     // Passt ein unverknüpfter Team-Eintrag per Name/E-Mail zu diesem
     // Profil, wird er übernommen statt einen zweiten Eintrag anzulegen.
     const emailLocal = _normUserName((au.email || '').split('@')[0]);
-    const matchesAu = u => !u.authId && (
+    const matchesAu = u => isUnlinked(u) && (
       _normUserName(u.name) === _normUserName(au.name) ||
       (au.email && u.email && u.email.toLowerCase() === au.email.toLowerCase()) ||
       (emailLocal && _normUserName(u.name) === emailLocal)
