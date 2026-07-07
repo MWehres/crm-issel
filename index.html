@@ -6512,7 +6512,8 @@ function renderTasks(list) {
       <div class="task-body">
         <div class="task-title ${t.done?'done-text':''}">${esc(t.title)}</div>
         <div class="task-meta">
-          ${c ? `<span>↳ ${esc(c.company)}</span>` : ''}
+          ${c ? `<span style="cursor:pointer;color:var(--accent);font-weight:500" title="Kontaktakte öffnen" onclick="showAkte('${esc(c.id)}')">↳ ${esc(c.company)}</span>` : ''}
+          ${c && c.phone ? `<a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()" style="color:var(--text2);text-decoration:none">📞 ${esc(c.phone)}</a>` : ''}
           <span class="badge ${pBadge}" style="font-size:9px;padding:1px 6px">${{high:'Hoch',medium:'Mittel',low:'Niedrig'}[t.priority]}</span>
           <span class="badge badge-gray" style="font-size:9px;padding:1px 6px">${esc(t.category||'')}</span>
           ${t.due ? `<span class="task-due ${isOverdue?'overdue':isSoon?'soon':''}">${isOverdue?'⚠️ ':isSoon?'⏰ ':''}${formatDate(t.due)}</span>` : ''}
@@ -9451,13 +9452,7 @@ function showPbSavePanel(outcome) {
         ⚠️ Kein Kontakt ausgewählt – bitte oben einen Kontakt wählen, damit das Protokoll korrekt gespeichert wird.
       </div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>
-          <select id="pb-save-contact" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="">— Kein Kontakt —</option>
-            ${DB.contacts.map(x=>`<option value="${x.id}"${x.id===pbContactId?' selected':''}>${esc(x.company)} – ${esc([x.firstname, x.lastname].filter(Boolean).join(' ') || '\u2013')}</option>`).join('')}
-          </select>
-        </div>
+        ${pbSaveContactField()}
         <div>
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Gesprächsart</label>
           <select id="pb-save-type" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
@@ -9569,6 +9564,38 @@ function pbBuildNotes(isPositive) {
   }
   
   return notes;
+}
+
+// Kontakt-Feld im Speichern-Panel: ein bereits im Leitfaden gewählter
+// Kontakt wird nur noch bestätigt (mit Telefonnummer) statt erneut
+// abgefragt. Über "ändern" lässt sich das Dropdown einblenden.
+function pbSaveContactSelect() {
+  return `<select id="pb-save-contact" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
+    <option value="">— Kein Kontakt —</option>
+    ${DB.contacts.map(x=>`<option value="${x.id}"${x.id===pbContactId?' selected':''}>${esc(x.company)} – ${esc([x.firstname, x.lastname].filter(Boolean).join(' ') || '–')}</option>`).join('')}
+  </select>`;
+}
+
+function pbSaveContactField() {
+  const label = '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>';
+  const c = pbContactId ? DB.contacts.find(x => x.id === pbContactId) : null;
+  if (c) {
+    return `<div id="pb-save-contact-wrap">
+      ${label}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--green);border-radius:7px;font-size:13px;background:var(--green-light);color:var(--navy)">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✓ ${esc(c.company)}${c.phone ? ' · 📞 ' + esc(c.phone) : ''}</span>
+        <a href="#" onclick="event.preventDefault();pbSaveContactChange()" style="font-size:11px;color:var(--accent);flex-shrink:0">ändern</a>
+      </div>
+      <input type="hidden" id="pb-save-contact" value="${esc(c.id)}">
+    </div>`;
+  }
+  return `<div id="pb-save-contact-wrap">${label}${pbSaveContactSelect()}</div>`;
+}
+
+function pbSaveContactChange() {
+  const wrap = document.getElementById('pb-save-contact-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>' + pbSaveContactSelect();
 }
 
 function pbSaveToContact(isPositive) {
@@ -9709,13 +9736,7 @@ function pbSaveTrigger(saveKey) {
     </div>
     <div class="card-body">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>
-          <select id="pb-save-contact" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="">— Kein Kontakt —</option>
-            ${DB.contacts.map(x=>`<option value="${x.id}"${x.id===pbContactId?' selected':''}>${esc(x.company)} – ${esc([x.firstname, x.lastname].filter(Boolean).join(' ') || '\u2013')}</option>`).join('')}
-          </select>
-        </div>
+        ${pbSaveContactField()}
         <div>
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Bearbeiter</label>
           <select id="pb-save-user" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
@@ -10740,7 +10761,8 @@ function wvTaskRow(t) {
   const isOverdue = t.due && t.due < today;
   const prioColor = { high: 'var(--red)', medium: 'var(--orange)', low: 'var(--green)' }[t.priority] || 'var(--text3)';
   const prioLabel = { high: 'Hoch', medium: 'Mittel', low: 'Niedrig' }[t.priority] || '';
-  const contactHtml = c ? '<span>\u21B3 ' + esc(c.company) + '</span>' : '';
+  const contactHtml = c ? '<span style="color:var(--accent);font-weight:500;cursor:pointer" title="Kontaktakte \u00F6ffnen" onclick="event.stopPropagation();showAkte(\'' + esc(c.id) + '\')">\u21B3 ' + esc(c.company) + '</span>' : '';
+  const phoneHtml = (c && c.phone) ? '<a href="tel:' + esc(c.phone) + '" onclick="event.stopPropagation()" style="color:var(--text2);text-decoration:none">\uD83D\uDCDE ' + esc(c.phone) + '</a>' : '';
   const catHtml = t.category ? '<span class="badge badge-gray" style="font-size:10px">' + esc(t.category) + '</span>' : '';
   const userHtml = u ? '<span style="display:flex;align-items:center;gap:4px"><span style="width:14px;height:14px;border-radius:50%;background:' + (u.color || 'var(--accent)') + ';display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">' + esc((u.name || '?')[0]) + '</span>' + esc(u.name) + '</span>' : '';
   const dueColor = isOverdue ? 'var(--red)' : 'var(--text2)';
@@ -10754,7 +10776,7 @@ function wvTaskRow(t) {
     + '<div style="flex:1;min-width:0">'
     + '<div style="font-size:13.5px;font-weight:500;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
     + '<div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">'
-    + contactHtml + catHtml + userHtml
+    + contactHtml + phoneHtml + catHtml + userHtml
     + '</div></div>'
     + '<div style="text-align:right;flex-shrink:0">'
     + dueHtml
