@@ -4099,6 +4099,31 @@ const FB_APIKEY_STORE  = 'prosales_fb_apikey';
 const FB_AUTH_STORE    = 'prosales_fbauth_v1';
 const SESSION_KEY      = 'prosales_session_v1';
 
+// ── Inaktivitäts-Limit ────────────────────────────────────
+// Wer das CRM länger als 8 Stunden nicht benutzt, muss sich neu
+// anmelden. Aktivität = Seitenaufruf, Klick oder Tastendruck
+// (gedrosselt auf max. eine Speicherung pro Minute).
+const AUTH_IDLE_LIMIT_MS  = 8 * 3600 * 1000;
+const AUTH_LAST_ACTIVE_KEY = 'prosales_last_active';
+let _lastActivityWrite = 0;
+
+function _touchActivity() {
+  const now = Date.now();
+  if (now - _lastActivityWrite < 60000) return;
+  _lastActivityWrite = now;
+  try { localStorage.setItem(AUTH_LAST_ACTIVE_KEY, String(now)); } catch(e) {}
+}
+
+function _idleLimitExceeded() {
+  try {
+    const last = parseInt(localStorage.getItem(AUTH_LAST_ACTIVE_KEY) || '0', 10);
+    return last > 0 && (Date.now() - last) > AUTH_IDLE_LIMIT_MS;
+  } catch(e) { return false; }
+}
+
+document.addEventListener('click', _touchActivity);
+document.addEventListener('keydown', _touchActivity);
+
 let currentUser        = null;   // { userId(uid), dbUserId, username(=E-Mail), name, role, department }
 let _editingAuthUserId = null;   // uid des gerade bearbeiteten Profils
 let _fbAuth            = null;   // { uid, email, idToken, refreshToken }
@@ -4319,6 +4344,7 @@ async function doLogin() {
     }
     _adoptProfileLocally(profile);
     setSession(profile);
+    _touchActivity();
     showApp();
     if (typeof syncAutoInit === 'function') syncAutoInit();
   } catch(e) {
@@ -4388,6 +4414,7 @@ function doLogout() {
   if (typeof syncStop === 'function') syncStop();
   fbAuthSignOut();
   clearSession();
+  try { localStorage.removeItem(AUTH_LAST_ACTIVE_KEY); } catch(e) {}
   const screen = document.getElementById('login-screen');
   screen.style.display = 'flex';
   screen.classList.remove('hide');
@@ -4600,6 +4627,13 @@ function deleteAuthUser(userId) {
 async function authInit() {
   _renderLoginSetupState();
 
+  // Zu lange inaktiv → gespeicherte Anmeldung verwerfen, neu einloggen
+  if (_idleLimitExceeded()) {
+    fbAuthSignOut();
+    clearSession();
+    try { localStorage.removeItem(AUTH_LAST_ACTIVE_KEY); } catch(e) {}
+  }
+
   let storedAuth = null, cachedSession = null;
   try { storedAuth   = JSON.parse(localStorage.getItem(FB_AUTH_STORE) || 'null'); } catch(e) {}
   try { cachedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch(e) {}
@@ -4613,6 +4647,7 @@ async function authInit() {
       }
       _adoptProfileLocally(profile);
       setSession(profile);
+      _touchActivity();
       showApp();
       if (typeof syncAutoInit === 'function') syncAutoInit();
       return;
@@ -4624,6 +4659,7 @@ async function authInit() {
         // Firebase nicht erreichbar → Offline-Modus mit lokalen Daten
         _fbAuthOffline = true;
         currentUser = cachedSession;
+        _touchActivity();
         showApp();
         if (typeof syncBarSet === 'function') syncBarSet('error', 'Offline – keine Synchronisation');
         if (typeof toast === 'function') toast('Offline-Modus: Änderungen werden synchronisiert, sobald Firebase wieder erreichbar ist', 'error');
