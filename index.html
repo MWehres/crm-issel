@@ -111,6 +111,9 @@ svg:not(.leaflet-pane svg):not(.leaflet-container svg) {
 body svg:not([class*="leaflet"]) { position: static !important; left: auto !important; top: auto !important; }
 #sk-map svg, .leaflet-pane svg, .leaflet-container svg { position: absolute !important; left: 0 !important; top: 0 !important; }
 
+/* App ist hell gestaltet – verhindert dunkle native Dropdowns bei OS-Dark-Mode */
+:root { color-scheme: light; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -8392,16 +8395,26 @@ const LN_EVENTS = {
   ],
 };
 
-// Gesprächsergebnis → Kontakt-Badge (CR_OPTIONS) + optionale Wiedervorlage
+// Gesprächsergebnis = Kontakt-Ergebnis (CR_OPTIONS, identisch zur
+// Kontaktliste) + optionale automatische Wiedervorlage.
+// „Vertrag läuft noch" ist ein Zusatz, der auf „Interesse" abbildet.
 const LN_RESULTS = [
-  { k: 'appointment', icon: '📅', label: 'Termin vereinbart',       cr: 'appointment', due: 'Termin am',        task: 'Termin',                    dueDefault: null },
-  { k: 'callback',    icon: '📞', label: 'Rückruf vereinbart',      cr: 'callback',    due: 'Rückruf am',       task: 'Rückruf',                   dueDefault: 2 },
-  { k: 'interested',  icon: '⭐', label: 'Interesse – nachfassen',  cr: 'interested',  due: 'Nachfassen am',    task: 'Nachfassen',                dueDefault: 7 },
-  { k: 'mail',        icon: '📧', label: 'Unterlagen senden',       cr: 'mail',        due: 'Nachfassen am',    task: 'Unterlagen nachfassen',     dueDefault: 5 },
-  { k: 'contract',    icon: '📄', label: 'Vertrag läuft noch',      cr: 'interested',  due: 'Wiedervorlage am', task: 'Vertragsende nachfassen',   dueDefault: 90 },
-  { k: 'noanswer',    icon: '📼', label: 'Nicht erreicht',          cr: 'noanswer',    due: 'Erneut versuchen', task: 'Erneuter Kontaktversuch',   dueDefault: 2 },
-  { k: 'rejected',    icon: '✖️', label: 'Kein Interesse',          cr: 'rejected',    due: null,               task: null,                        dueDefault: null },
+  { k: 'interested',  cr: 'interested',  due: 'Nachfassen am',       task: 'Nachfassen',              dueDefault: 7 },
+  { k: 'appointment', cr: 'appointment', due: 'Termin am',           task: 'Termin',                  dueDefault: null },
+  { k: 'callback',    cr: 'callback',    due: 'Rückruf am',          task: 'Rückruf',                 dueDefault: 2 },
+  { k: 'mail',        cr: 'mail',        due: 'Nachfassen am',       task: 'Unterlagen nachfassen',   dueDefault: 5 },
+  { k: 'noanswer',    cr: 'noanswer',    due: 'Erneut versuchen am', task: 'Erneuter Kontaktversuch', dueDefault: 2 },
+  { k: 'rejected',    cr: 'rejected',    due: null,                  task: null,                      dueDefault: null },
+  { k: 'contract',    cr: 'interested',  due: 'Wiedervorlage am',    task: 'Vertragsende nachfassen', dueDefault: 90, label: '&#128196; Vertrag läuft noch' },
 ];
+
+// Anzeige-Label (mit Icon) und Klartext-Label (für Betreff/Protokoll)
+function lnResultHtmlLabel(r) {
+  return r.label || (typeof CR_OPTIONS !== 'undefined' && CR_OPTIONS[r.cr]?.label) || r.k;
+}
+function lnResultTextLabel(r) {
+  return lnResultHtmlLabel(r).replace(/&#\d+;\s*/g, '').trim();
+}
 
 let lnContactId = '';
 let lnUserId    = '';
@@ -8513,7 +8526,10 @@ function renderPlaybook() {
       <div class="card-header"><div class="card-title">🏁 Ergebnis</div></div>
       <div class="card-body">
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${LN_RESULTS.map(r => `<button class="btn ${lnResult === r.k ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="lnSetResult('${r.k}')">${r.icon} ${esc(r.label)}</button>`).join('')}
+          ${LN_RESULTS.map(r => `<button class="btn ${lnResult === r.k ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="lnSetResult('${r.k}')">${lnResultHtmlLabel(r)}</button>`).join('')}
+        </div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:8px">
+          Das gewählte Ergebnis wird direkt als Gesprächsergebnis am Kontakt gespeichert – identisch mit den Ergebnissen in der Kontaktliste.
         </div>
         <div id="ln-due-wrap" style="margin-top:14px;${lnResultDef()?.due ? '' : 'display:none'}">
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px"><span id="ln-due-label">${esc(lnResultDef()?.due || 'Wiedervorlage am')}</span> – legt automatisch eine Wiedervorlage an</label>
@@ -8653,7 +8669,7 @@ function lnSave() {
   if (lnEvents.length) {
     details += 'Gesprächsverlauf:\n' + lnEvents.map(e => e.time + ' – ' + e.label).join('\n') + '\n';
   }
-  details += 'Ergebnis: ' + def.label + (due ? ' (' + formatDate(due) + ')' : '') + '\n';
+  details += 'Ergebnis: ' + lnResultTextLabel(def) + (due ? ' (' + formatDate(due) + ')' : '') + '\n';
   if (notes.trim()) details += '\nNotizen:\n' + notes.trim();
 
   // 1) Aktivität in die Akte
@@ -8663,7 +8679,7 @@ function lnSave() {
     contactId: c.id,
     userId: lnUserId || getCurrentDbUserId() || '',
     date: fmtDate(0),
-    subject: 'Leadnotiz – ' + def.label,
+    subject: 'Leadnotiz – ' + lnResultTextLabel(def),
     details,
     duration,
     created: new Date().toISOString()
@@ -8683,7 +8699,7 @@ function lnSave() {
       priority: 'medium',
       category: 'Nachfassen',
       isWiedervorlage: true,
-      notes: 'Aus Leadnotiz: ' + def.label,
+      notes: 'Aus Leadnotiz: ' + lnResultTextLabel(def),
       done: false,
       created: new Date().toISOString()
     });
