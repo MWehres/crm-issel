@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <!--
   ProSales CRM — Changelog
+  v26 (2026-07-07) — Leadnotizen statt Vertriebsleitfaden
+  · Vertriebsleitfaden zu „Leadnotizen" umgebaut: interaktives Gesprächsprotokoll ohne
+    Skripte/Coaching-Texte. Ablauf: Kontakt wählen (mit Telefonnummer) → Anruf starten (Timer) →
+    anklicken wer rangeht + Gesprächsereignisse (u. a. „Wir haben schon einen Dienstleister") →
+    Live-Protokoll + Freitext-Notizen → Ergebnis wählen. Speichern legt die Aktivität in der
+    Kundenakte an, setzt das Kontakt-Ergebnis-Badge und erzeugt bei Termin/Rückruf/Nachfassen
+    automatisch eine Wiedervorlage mit Datum. Alle 13 Einwand-Stationen, Skripte, Checklisten
+    und „Stärken vs. Großanbieter" entfernt. Öffentliche API (renderPlaybook/pbReset/
+    openPlaybookForContact) und Berichts-Kategorisierung bleiben kompatibel.
   v25 (2026-07-03) — Sicherheits- & Sync-Überarbeitung
   · AUTH: Login auf Firebase Authentication (E-Mail/Passwort) umgestellt. Eingebettetes DB-Secret,
           JSONbin-Key, Default-Zugangsdaten (admin/issel2024) und clientseitiges SHA-256-Hashing entfernt.
@@ -2799,7 +2808,7 @@ input[type="checkbox"]:hover {
     <div class="nav-section">Werkzeuge</div>
     <div class="nav-item" onclick="showPage('playbook')" id="nav-playbook">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg>
-      Vertriebsleitfaden
+      Leadnotizen
     </div>
     <div class="nav-item" onclick="showPage('linkedin')" id="nav-linkedin">
       <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" stroke-width="2" stroke-linecap="round"/><rect x="2" y="9" width="4" height="12" stroke-width="2"/><circle cx="4" cy="4" r="2" stroke-width="2"/></svg>
@@ -5394,7 +5403,7 @@ const pageTitles = {
   team: 'Team & Nutzer',
   finanzen: 'Finanzen & Umsatz',
   reports: 'Berichte & Druckansicht',
-  playbook: 'Vertriebsleitfaden',
+  playbook: 'Leadnotizen',
   akte: 'Kontaktakte',
   standortkarte: 'Standortkarte',
   linkedin: 'LinkedIn Outreach'
@@ -5410,7 +5419,7 @@ const topbarActions = {
   team:      '',
   finanzen:  '',
   reports:   '<button class="btn btn-secondary no-print" onclick="window.print()">&#128424; Drucken</button>',
-  playbook:  '<button class="btn btn-secondary no-print btn-sm" onclick="pbReset()">&#8635; Neustart</button>',
+  playbook:  '<button class="btn btn-secondary no-print btn-sm" onclick="pbReset()">&#8635; Neue Leadnotiz</button>',
   akte:      '<div id="akte-topbar-actions" style="display:flex;gap:8px"></div>',
   standortkarte: '',
   linkedin:  '<button class="btn btn-secondary no-print btn-sm" onclick="liReset()">&#8635; Zurücksetzen</button>'
@@ -5882,7 +5891,7 @@ function renderDashTasks() {
       + (t.due ? '<span class="task-due ' + (isOverdue?'overdue':isSoon?'soon':'') + '">' + (isOverdue ? '\u26A0\uFE0F ' : '') + formatDate(t.due) + '</span>' : '')
       + '</div></div>'
       + '<div style="display:flex;gap:4px;flex-shrink:0">'
-      + (c ? '<button class="btn-icon btn-sm" title="Leitfaden starten" onclick="event.stopPropagation();openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>' : '')
+      + (c ? '<button class="btn-icon btn-sm" title="Leadnotiz starten" onclick="event.stopPropagation();openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>' : '')
       + '</div>'
       + '</div>';
   }).join('');
@@ -6033,7 +6042,7 @@ function renderContacts(list) {
       + '<button class="btn-icon btn-sm" title="Angebot kalkulieren" onclick="event.stopPropagation();openKalkulation(\'' + c.id + '\')" style="background:#1565C0;color:#000;font-weight:600;padding:5px 9px;font-size:11px;border-radius:4px">📊</button>'
       + '<button class="btn-icon btn-sm" title="Aktivität" onclick="openActivityModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M12 22V12m0 0V2m0 10H2m10 0h10" stroke-width="2" stroke-linecap="round"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Aufgabe" onclick="openTaskModalFor(\'' + c.id + '\')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 11l3 3L22 4" stroke-width="2" stroke-linecap="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke-width="2"/></svg></button>'
-      + '<button class="btn-icon btn-sm" title="Leitfaden" onclick="openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>'
+      + '<button class="btn-icon btn-sm" title="Leadnotiz" onclick="openPlaybookForContact(\'' + c.id + '\')" style="color:var(--purple)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18" stroke-width="2" stroke-linecap="round"/></svg></button>'
       + '<button class="btn-icon btn-sm" title="Löschen" onclick="deleteContact(\'' + c.id + '\')" style="color:var(--red)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button>'
       + '</div></td></tr>';
   }).join('');
@@ -8298,1645 +8307,362 @@ function fmtEurFull(n) {
 
 // ── KEYBOARD SHORTCUTS ───────────────────────────────────
 // ══════════════════════════════════════════════════════════
-// VERTRIEBSLEITFADEN (PLAYBOOK) – mit CRM-Integration
+// LEADNOTIZEN – interaktives Gesprächsprotokoll (v26)
+// Ersetzt den Vertriebsleitfaden: keine Skripte/Coaching-Texte mehr.
+// Ablauf: Kontakt wählen → Anruf starten → anklicken, was passiert
+// (wer geht ran, Ereignisse wie „Haben schon einen Dienstleister") →
+// Ergebnis + Datum → speichert Aktivität in der Kundenakte, setzt das
+// Kontakt-Ergebnis und legt bei Bedarf automatisch eine Wiedervorlage an.
+// Öffentliche API bleibt: renderPlaybook(), pbReset(), openPlaybookForContact().
 // ══════════════════════════════════════════════════════════
 
-const PB_PHASES = {
-  1:{name:'Kontakt',     color:'#D97706', bg:'#FEF3C7'},
-  2:{name:'Erstgespräch',color:'#1565C0', bg:'#E3F0FF'},
-  3:{name:'Bedarfsanalyse',color:'#7C3AED',bg:'#EDE9FE'},
-  4:{name:'Angebot',     color:'#0D9488', bg:'#CCFBF1'},
-  5:{name:'Einwände',    color:'#DC2626', bg:'#FEE2E2'},
-  6:{name:'Abschluss',   color:'#16A34A', bg:'#DCFCE7'},
-};
-
-// TERMINAL STATES: trigger the save-to-CRM dialog
-const PB_TERMINALS = new Set(['close','hard_no']);
-
-const PB_STATES = {
-  start:{p:1,type:'process',title:'Vorbereitung – vor dem Anruf',ctx:'Recherche ist die Grundlage jedes erfolgreichen Verkaufsgesprächs. Kennen Sie das Unternehmen, die Branche, die Risiken und den Namen des Entscheiders – bevor Sie den Hörer abnehmen.',script:null,tech:null,tips:['Entscheidernamen aus LinkedIn, Xing, Website, Handelsregister recherchieren','Branchenrisiken kennen: KRITIS? Logistik? Chemie? Automotive?','Aktuelle Nachrichten über das Unternehmen checken (Sicherheitsvorfälle, Expansionen)','§34a GewO-Relevanz, ISO 27001, DGUV-Vorschriften für die Branche prüfen','Name des aktuellen Sicherheitsdienstleisters eruieren (Google, Ausschreibungen, Netzwerk)'],opts:[{l:'→ Anruf starten',n:'first_contact',c:'a'}]},
-  first_contact:{p:1,type:'process',title:'Erstkontakt – wer nimmt ab?',ctx:'Das Telefon klingelt beim Zielunternehmen. Die nächsten 30 Sekunden entscheiden über den weiteren Verlauf.',script:null,tech:null,tips:[],opts:[{l:'✓ Entscheider nimmt direkt ab',n:'dm_intro',c:'g'},{l:'⚠ Sekretariat / Gatekeeper meldet sich',n:'gatekeeper',c:'a'},{l:'✗ Keine Antwort / Mailbox',n:'no_answer',c:'x'}]},
-  no_answer:{p:1,type:'info',title:'Keine Antwort – Mailbox',ctx:'Mailbox oder kein Abnehmen. Nicht aufgeben – systematisch nachfassen.',script:'„Guten Tag, hier ist [Name] von [Firma]. Ich rufe an wegen einer kurzen Frage zu Ihrem Werkschutz. Ich versuche es nochmals – alternativ bin ich erreichbar unter [Nummer]. Guten Tag."',tech:null,tips:['Kurz und klar – max. 20 Sekunden Mailbox-Nachricht','3 Versuche mit je 2 Tagen Abstand, dann E-Mail','Uhrzeiten variieren: 8:00, 11:30, 16:00 Uhr sind gut','Nie aufgeben – 80% der Abschlüsse entstehen nach dem 5. Kontakt'],opts:[{l:'→ Erneut versuchen / Follow-up E-Mail',n:'first_contact',c:'a'},{l:'→ Gesprächsprotokoll speichern',n:'__save_no_answer',c:'x'}]},
-  gatekeeper:{p:1,type:'process',title:'Gatekeeper überbrücken',ctx:'Das Sekretariat ist die erste Hürde. Ziel: Durchgestellt werden – NICHT den vollständigen Pitch halten.',script:'„Guten Tag, [Name]. Bitte verbinden Sie mich mit Herrn/Frau [Entscheidername] – es geht um Ihre Objektsicherheit." [Pause]',tech:'Autoritäts-Technik: Klingt nach Insider, Namen kennen = direkte Verbindung',tips:['Namen des Entscheiders kennen – das ist der Game-Changer','Nie vollständig erklären warum – kurz und präzise'],opts:[{l:'✓ „Einen Moment, ich verbinde."',n:'dm_intro',c:'g'},{l:'⚠ „Warum rufen Sie an? Worum geht es?"',n:'gk_reason',c:'a'},{l:'⚠ „Der ist gerade nicht erreichbar."',n:'gk_not_available',c:'a'},{l:'✗ „Wir haben da kein Interesse."',n:'obj_gk_no_interest',c:'x'}]},
-  gk_reason:{p:1,type:'process',title:'Gatekeeper fragt nach dem Grund',ctx:'Der Gatekeeper möchte qualifizieren. Bleiben Sie knapp und professionell.',script:'„Ich möchte mit Herrn/Frau [Name] kurz über Optimierungspotenziale in Ihrer Objektsicherheit sprechen – das dauert ca. 8 Minuten."',tech:'Wert + Zeitrahmen = Interesse wecken ohne zu viel preiszugeben',tips:['Konkrete Zeitangabe macht die Anfrage kleiner','Auf keinen Fall Angebote oder Preise nennen'],opts:[{l:'✓ Durchgestellt',n:'dm_intro',c:'g'},{l:'⚠ „Schicken Sie erstmal Unterlagen"',n:'obj_send_materials',c:'a'},{l:'✗ „Da können wir nicht weiterhelfen"',n:'gk_blocked',c:'x'}]},
-  gk_not_available:{p:1,type:'process',title:'Entscheider nicht erreichbar',ctx:'Der Entscheider ist gerade nicht da. Konkreten Rückruf-Termin vereinbaren.',script:'„Kein Problem. Wann ist Herr/Frau [Name] am besten zu erreichen? Ich rufe genau dann zurück."',tech:null,tips:['Immer auf konkreten Zeitpunkt bestehen – kein „irgendwann mal"','Im CRM: Zeitpunkt + Gatekeeper-Name notieren'],opts:[{l:'→ Rückruf-Termin vereinbart',n:'first_contact',c:'a'},{l:'→ Protokoll speichern & Aufgabe anlegen',n:'__save_callback',c:'a'}]},
-  gk_blocked:{p:1,type:'info',title:'Gatekeeper blockiert',ctx:'Dieser Weg ist momentan versperrt. Alternativen aktivieren.',script:null,tech:null,tips:['LinkedIn/Xing: Direktnachricht an den Entscheider','E-Mail an info@ + personalisierte Direkt-Mail','Nach 4–6 Wochen erneut versuchen'],opts:[{l:'→ Protokoll speichern & Folge-Aufgabe anlegen',n:'__save_blocked',c:'x'}]},
-  obj_gk_no_interest:{p:1,type:'objection',title:'Einwand via Gatekeeper: „Kein Interesse"',ctx:'Ein Gatekeeper kann kein wirkliches Desinteresse formulieren – das ist eine Abwimmelstrategie.',script:'„Das kann ich gut verstehen – und das ist ja auch Ihre Aufgabe, den Terminkalender zu schützen. Mein Anliegen ist aber relevant für Herrn/Frau [Name] – darf ich ihn/sie kurz selbst fragen?"',tech:'Reframe: Gatekeeper schützt den Boss → der Boss soll selbst entscheiden',tips:['Nie mit dem Gatekeeper über Inhalt diskutieren'],opts:[{l:'✓ Dennoch durchgestellt',n:'dm_intro',c:'g'},{l:'✗ Weiterhin blockiert',n:'gk_blocked',c:'x'}]},
-  obj_send_materials:{p:2,type:'objection',title:'Einwand: „Schicken Sie erstmal Unterlagen"',ctx:'Klassisches Abwimmel-Manöver. Unterlagen als Türöffner nutzen – NICHT als Ende des Gesprächs.',script:'„Das mache ich gerne – und damit die Unterlagen wirklich passen, habe ich noch 2 kurze Fragen. Ist das jetzt kurz möglich?"',tech:'Conditional Close: Unterlagen JA – aber nur mit Qualifizierungsgespräch',tips:['Nie Unterlagen schicken ohne konkreten Follow-up-Termin','Unterlagen direkt an den Entscheider adressieren'],opts:[{l:'✓ Telefontermin zusätzlich vereinbart',n:'dm_intro',c:'g'},{l:'✗ Nur Unterlagen, kein Termin',n:'materials_sent',c:'x'}]},
-  materials_sent:{p:2,type:'process',title:'Unterlagen versendet – aktives Follow-up',ctx:'3–5 Tage nach Versand aktiv nachfassen. Direkt in die Qualifizierung einsteigen.',script:'„Guten Tag Herr/Frau [Name], [Ihr Name] hier. Ich hatte letzte Woche kurze Unterlagen geschickt – welcher Aspekt hat Sie am meisten angesprochen?"',tech:'Direkt in Qualifizierungsfrage einsteigen',tips:['Niemals fragen ob Unterlagen erhalten – das lädt zum Abwimmeln ein'],opts:[{l:'✓ Interesse vorhanden',n:'dm_intro',c:'g'},{l:'✗ Immer noch kein Interesse',n:'obj_no_interest',c:'x'}]},
-  dm_intro:{p:2,type:'process',title:'Erstgespräch mit Entscheider – Einstieg',ctx:'Sie haben den Entscheider am Hörer. Die ersten 30 Sekunden entscheiden. Kein Pitch – erst eine gute Frage stellen.',script:'„Guten Tag Herr/Frau [Name], [Ihr Name] von [Firma]. Ich spezialisiere mich auf Werkschutzlösungen für [Branche]-Unternehmen wie Ihres. Darf ich erklären, warum ich genau Sie anrufe?" [Pause]\n\n„Erfahrungsgemäß haben Unternehmen Ihrer Größe in [Region] bei [Pain Point] konkrete Herausforderungen. Ist das bei Ihnen auch ein Thema?"',tech:'SPIN-Einstieg: Situation → Problem → Implizite Frage statt sofortigem Pitch',tips:['Hook mit Branchenspezifität zeigt Recherche','Pause nach Frage aushalten','Ziel: 5-Minuten-Qualifizierung oder Folgetermin'],opts:[{l:'✓ Zeigt Interesse, will mehr hören',n:'need_analysis',c:'g'},{l:'⚠ „Wir haben schon einen Dienstleister"',n:'obj_existing_provider',c:'a'},{l:'⚠ „Keine Zeit gerade"',n:'obj_no_time',c:'a'},{l:'✗ „Kein Bedarf / kein Interesse"',n:'obj_no_interest',c:'x'},{l:'✗ „Rufen Sie mich nicht mehr an"',n:'hard_no',c:'x'}]},
-  need_analysis:{p:3,type:'process',title:'Bedarfsanalyse – die richtigen Fragen stellen',ctx:'Goldene Regel: 70% zuhören, 30% sprechen. Wer fragt, führt das Gespräch.',script:'1. „Wie ist Ihr Sicherheitskonzept aktuell aufgestellt?"\n2. „Was funktioniert gut – und wo sehen Sie Optimierungspotenzial?"\n3. „Haben Sie zuletzt Vorfälle gehabt – Diebstahl, unbefugter Zutritt, Vandalismus?"\n4. „Welche Compliance-Anforderungen müssen Sie erfüllen? KRITIS? ISO 27001?"\n5. „Wer ist intern für Sicherheit zuständig – gibt es weitere Entscheider?"',tech:'SPIN Selling: Situation → Problem → Implication → Need-Payoff',tips:['Nie mehr als eine Frage gleichzeitig stellen','KRITIS-Thema proaktiv ansprechen bei relevanten Branchen','Antworten wortwörtlich im CRM notieren'],opts:[{l:'✓ Klare Bedarfe identifiziert → Angebot erstellen',n:'proposal_prep',c:'g'},{l:'⚠ Bedarf unklar → Vor-Ort-Termin nötig',n:'onsite_appointment',c:'a'}]},
-  onsite_appointment:{p:3,type:'process',title:'Vor-Ort-Begehung vereinbaren',ctx:'Für komplexe Objekte ist eine Begehung vor Ort der stärkste Vertrauensaufbau-Schritt.',script:'„Damit ich Ihnen ein passgenaues Konzept machen kann, würde ich gerne 45 Minuten mit Ihnen vor Ort verbringen. Wann passt es Ihnen – Mittwoch 10 Uhr oder Donnerstag 14 Uhr?"',tech:'Alternative Closing + Foot-in-the-Door: Begehung = Commitment des Kunden',tips:['Konkrete Zeitvorschläge machen','Nach Begehung: Konzept + Angebot innerhalb 48 Stunden'],opts:[{l:'✓ Vor-Ort-Termin vereinbart',n:'proposal_prep',c:'g'},{l:'✗ Kein Termin möglich',n:'obj_no_time',c:'x'}]},
-  proposal_prep:{p:4,type:'process',title:'Angebot erstellen – Vorbereitung',ctx:'Das Angebot ist nicht das Ende – es ist der Beginn der Verhandlung.',script:null,tech:null,tips:['Angebot auf identifizierte Schmerzpunkte zuschneiden','ROI sichtbar machen: Was kostet ein Sicherheitsvorfall?','3 Angebotsoptionen: Basic / Professional / Premium (Middle-Option-Effekt)','Klares Ablaufdatum im Angebot (Scarcity)','Angebot nie einfach per E-Mail schicken – Präsentationstermin vereinbaren'],opts:[{l:'→ Angebot präsentieren',n:'proposal_presentation',c:'a'}]},
-  proposal_presentation:{p:4,type:'process',title:'Angebotspräsentation – Reaktion des Kunden',ctx:'Das Angebot ist vorgestellt. Stille aushalten und den Kunden zuerst reagieren lassen.',script:null,tech:null,tips:[],opts:[{l:'✓ Interesse, bereit zu verhandeln',n:'negotiation',c:'g'},{l:'⚠ „Das ist zu teuer"',n:'obj_too_expensive',c:'a'},{l:'⚠ „Muss ich noch drüber nachdenken"',n:'obj_think_about_it',c:'a'},{l:'⚠ „Muss intern entschieden werden"',n:'obj_internal_decision',c:'a'},{l:'⚠ „Konkurrenz hat etwas Günstigeres angeboten"',n:'obj_competitor_cheaper',c:'a'},{l:'✗ „Schlechte Erfahrungen mit Sicherheitsdiensten"',n:'obj_bad_experience',c:'x'},{l:'✗ „Wir zweifeln an Ihrer Qualität"',n:'obj_quality_doubts',c:'x'},{l:'✗ „Gerade kein Budget"',n:'obj_no_budget',c:'x'},{l:'✗ „Das ist zeitlich zu kurzfristig"',n:'obj_too_short_notice',c:'x'}]},
-  obj_no_interest:{p:5,type:'objection',title:'Einwand: „Kein Bedarf / kein Interesse"',ctx:'Der häufigste Einwand – und oft nur ein Reflex. Zuerst klassifizieren: echter Einwand oder Schutzreflex?',script:'„Das kann ich verstehen. Darf ich kurz fragen: Wenn Sie sagen kein Bedarf – meinen Sie, Sie sind mit der aktuellen Lösung 100% zufrieden, oder ist Sicherheit gerade keine Priorität?" [Pause]',tech:'Klassifizierung: Echter Einwand vs. Abwehrmechanismus unterscheiden',tips:['„Kein Bedarf" bedeutet oft: „Kein Vertrauen" oder „Nicht meine Priorität"','Regulatorischen Druck ansprechen: KRITIS, §4 GewO, Versicherungspflichten'],opts:[{l:'✓ Öffnet sich, will mehr hören',n:'need_analysis',c:'g'},{l:'⚠ „Wir sind wirklich zufrieden so wie es ist"',n:'obj_status_quo',c:'a'},{l:'✗ Klares, echtes Desinteresse',n:'hard_no',c:'x'}]},
-  obj_existing_provider:{p:5,type:'objection',title:'Einwand: „Wir haben bereits einen Sicherheitsdienstleister"',ctx:'Das bedeutet: Der Kunde hat Bewusstsein für den Bedarf und zahlt bereits dafür. Schwachstellen des Incumbents aufdecken.',script:'„Das freut mich zu hören. Wie lange arbeiten Sie schon mit dem aktuellen Anbieter zusammen?" [Zuhören]\n\n„Was läuft gut – und was würden Sie sich anders wünschen?" [Zuhören]',tech:'Competitor Displacement: Schwachstellen des Mitbewerbers aufdecken lassen',tips:['Nie den aktuellen Dienstleister aktiv schlecht reden','Vertragslaufzeit erfragen: Wann läuft der Vertrag aus?'],opts:[{l:'✓ Nennt Schwachstellen des aktuellen Anbieters',n:'need_analysis',c:'g'},{l:'⚠ „Wir sind eigentlich zufrieden"',n:'obj_status_quo',c:'a'},{l:'⚠ „Vertrag läuft noch 12+ Monate"',n:'long_contract',c:'a'}]},
-  long_contract:{p:5,type:'process',title:'Vertrag beim Wettbewerber läuft noch lange',ctx:'Kein Problem – den Grundstein für den späteren Wechsel legen.',script:'„Das ist kein Problem. Ich schicke Ihnen ein Angebot zur Ansicht – dann haben Sie eine Vergleichsgröße in der Schublade. Und in 3 Monaten melde ich mich zurück."',tech:'Pipeline Building: Vertragsenddatum als Trigger im CRM',tips:['CRM-Eintrag: Vertragsenddatum + Follow-up 3 Monate vorher','Angebot „zur Referenz" schicken – ohne Druck'],opts:[{l:'→ Follow-up-Aufgabe anlegen & Protokoll speichern',n:'__save_future',c:'a'}]},
-  obj_no_time:{p:5,type:'objection',title:'Einwand: „Keine Zeit / gerade ungünstig"',ctx:'Häufig kein echter Einwand, sondern ein Schutzreflex. Konkreten Termin vereinbaren.',script:'„Ich verstehe – deswegen versuche ich, es kurz zu halten. Ich brauche nur 8 Minuten von Ihnen. Wann haben Sie 8 Minuten in den nächsten 3 Tagen?"',tech:'Alternative Closing: 8 Minuten = niedrige Hemmschwelle',tips:['Nie „irgendwann mal" akzeptieren','Zwei konkrete Optionen anbieten – nie offene Frage'],opts:[{l:'✓ Konkreter Termin vereinbart',n:'dm_intro',c:'g'},{l:'✗ Weiterhin kein Termin möglich',n:'hard_no',c:'x'}]},
-  obj_too_expensive:{p:5,type:'objection',title:'Einwand: „Das ist zu teuer"',ctx:'Fast nie wirklich ein Budget-Problem – meist ein Wert-Problem. Nie sofort Preis senken.',script:'„Ich höre Sie – zu teuer im Vergleich zu was?" [Zuhören]\n\n„Was kostet ein Einbruch, ein Sicherheitsvorfall oder ein Compliance-Verstoß Ihr Unternehmen? Unsere Lösung kostet [Y] – das ist eine kalkulierbare Versicherung."',tech:'ROI-Gegenkalkulation + Bumerang-Methode: Preis vs. Kosten des Problems',tips:['Nie sofort Preis senken – das signalisiert Verhandlungsspielraum','ROI konkret ausrechnen: Schadenkosten / Monatspreis = Break-even'],opts:[{l:'✓ Versteht den ROI, bereit zu verhandeln',n:'negotiation',c:'g'},{l:'⚠ „Konkurrenz ist günstiger"',n:'obj_competitor_cheaper',c:'a'},{l:'⚠ „Gerade wirklich kein Budget"',n:'obj_no_budget',c:'a'},{l:'✗ Lässt sich nicht überzeugen',n:'hard_no',c:'x'}]},
-  obj_no_budget:{p:5,type:'objection',title:'Einwand: „Kein Budget / Budget vergeben"',ctx:'Echten Budget-Einwand vs. Vorwand unterscheiden. Bei echtem Budget-Problem: Zeitplanung finden.',script:'„Wann wird das Budget für nächstes Jahr geplant?" [Timing erfragen]\n\n„Wären Sie offen für einen Piloten – z.B. nur einen Bereich zu einem Einstiegspreis?"',tech:'Pipeline Management: Nächste Budget-Runde aktiv vorbereiten',tips:['Budget-Zyklus verstehen – wann plant das Unternehmen?','Pilot/Einstiegslösung als Budget-schonenden Einstieg'],opts:[{l:'✓ Pilot-Ansatz wird akzeptiert',n:'negotiation',c:'g'},{l:'✓ Nächste Budget-Runde geplant',n:'__save_future',c:'g'},{l:'✗ Absolutes Budget-Stop, keine Perspektive',n:'hard_no',c:'x'}]},
-  obj_think_about_it:{p:5,type:'objection',title:'Einwand: „Muss ich noch drüber nachdenken"',ctx:'Der weichste Einwand – und der gefährlichste. Den dahinterliegenden echten Einwand herausarbeiten.',script:'„Das verstehe ich absolut. Darf ich fragen, was Sie davon abhält, heute eine Entscheidung zu treffen?" [Zuhören]\n\n„Was müsste noch klarer sein, damit Sie sich sicher fühlen?"',tech:'Verborgenen Einwand aufdecken',tips:['„Nachdenken" ist fast nie ein echter Einwand','Konkreten Follow-up-Termin vereinbaren'],opts:[{l:'✓ Echten Einwand herausgearbeitet',n:'proposal_presentation',c:'g'},{l:'✓ Follow-up-Termin vereinbart & Protokoll speichern',n:'__save_followup',c:'g'},{l:'✗ Bleibt vage, kein Fortschritt',n:'hard_no',c:'x'}]},
-  obj_internal_decision:{p:5,type:'objection',title:'Einwand: „Muss intern entschieden werden"',ctx:'Es gibt weitere Entscheider. Alle relevanten Stakeholder in den Prozess holen.',script:'„Das ist verständlich. Wer sind die weiteren Personen, die das mittragen müssen?" [Zuhören]\n\n„Wäre es sinnvoll, wenn ich direkt an dem Meeting teilnehme und Fragen live beantworte?"',tech:'Stakeholder-Mapping: Alle Entscheider identifizieren + in den Prozess holen',tips:['Champion aufbauen: Ihr Kontakt soll intern für Sie verkaufen','Interne Entscheidungsvorlage aufbereiten – Arbeit abnehmen'],opts:[{l:'✓ Meeting mit allen Entscheidern geplant',n:'dm_intro',c:'g'},{l:'✓ Entscheidungsvorlage wird erstellt & Protokoll speichern',n:'__save_followup',c:'g'},{l:'✗ Kein Zugang zu anderen Entscheidern',n:'hard_no',c:'x'}]},
-  obj_competitor_cheaper:{p:5,type:'objection',title:'Einwand: „Konkurrenz hat günstigeres Angebot"',ctx:'Oft eine Verhandlungstaktik. Nie in Preisunterbietung einsteigen.',script:'„Das glaube ich Ihnen. Darf ich fragen, welches Unternehmen das war?" [Antwort]\n\n„War das ein Vollkostenvergleich oder nur der Stundensatz? Oft liegen versteckte Kosten in Qualifikation, Schulungen und Ausfallkostenabsicherung."',tech:'Value Differentiation + Total Cost of Ownership',tips:['Differenzierungsargumente: §34a-Quote, Fluktuation, Reaktionszeiten, ISO-Zertifizierung','Nie sofort nachgeben'],opts:[{l:'✓ Erkennt den Mehrwert, weiter verhandeln',n:'negotiation',c:'g'},{l:'⚠ Besteht auf Preissenkung',n:'obj_too_expensive',c:'a'},{l:'✗ Entscheidet sich für Wettbewerber',n:'hard_no',c:'x'}]},
-  obj_bad_experience:{p:5,type:'objection',title:'Einwand: „Schlechte Erfahrungen mit Sicherheitsdiensten"',ctx:'Emotionaler Einwand – zuerst Empathie, dann Differenzierung.',script:'„Das tut mir leid zu hören – was war das konkret, was schlecht lief?" [Vollständig zuhören]\n\n„Genau deshalb haben wir [Stammteams, monatliche Qualitätsgespräche, eigene Qualitätskontrolle] implementiert."',tech:'Feel-Felt-Found + Social Proof',tips:['Zuerst vollständig zuhören – nicht unterbrechen','Referenzkunden aus gleicher Branche aktivieren'],opts:[{l:'✓ Offen für Referenzen / zweite Chance',n:'proposal_presentation',c:'g'},{l:'✗ Vertrauensverlust zu tief',n:'hard_no',c:'x'}]},
-  obj_quality_doubts:{p:5,type:'objection',title:'Einwand: „Wie gut sind Ihre Mitarbeiter wirklich?"',ctx:'Qualitätszweifel sind berechtigt. Mit konkreten Fakten kontern.',script:'„Konkret: 100% unserer eingesetzten Kräfte haben die §34a GewO-Qualifikation. Unsere Fluktuationsrate liegt bei [X]% – der Branchendurchschnitt liegt bei 80–120% pro Jahr."',tech:'Fakten-Beweisführung: §34a, Zertifikate, Fluktuation, Referenzen',tips:['Fakten parat haben: §34a-Quote, ISO-Zertifikate, Referenzen','Fluktuation ist das stärkste Differenzierungsmerkmal'],opts:[{l:'✓ Überzeugt, bereit zu verhandeln',n:'negotiation',c:'g'},{l:'⚠ Möchte zunächst Referenzen einholen',n:'__save_followup',c:'a'},{l:'✗ Bleibt skeptisch',n:'hard_no',c:'x'}]},
-  obj_too_short_notice:{p:5,type:'objection',title:'Einwand: „Zu kurzfristig / gerade zu viel los"',ctx:'Timing-Problem. Phased Approach und niedrigschwelligen Einstieg anbieten.',script:'„Wann wäre ein besserer Zeitpunkt? Welches Quartal passt besser?" [Zuhören]\n\n„Was, wenn wir jetzt mit einer unverbindlichen Bedarfsanalyse beginnen – die kostet Sie nichts und bindet Sie zu nichts."',tech:'Phased Approach: Jetzt klein starten – Momentum aufbauen ohne Druck',tips:['Bei Bauprojekten: JETZT ist der optimale Zeitpunkt','CRM-Follow-up mit konkret datiertem Reminder'],opts:[{l:'✓ Erstanalyse oder späterer Termin vereinbart',n:'__save_future',c:'g'},{l:'✗ Kein konkreter Ausblick',n:'hard_no',c:'x'}]},
-  obj_status_quo:{p:5,type:'objection',title:'Einwand: „Wir sind zufrieden, wie es ist"',ctx:'Status-Quo-Bias – der stärkste psychologische Widerstand. Disruptive Fragen einsetzen.',script:'„Darf ich trotzdem eine Frage stellen? Wann haben Sie zuletzt Ihr Sicherheitskonzept auf Compliance und aktuelle Risiken überprüfen lassen?" [Zuhören]\n\n„Ich biete Ihnen ein kostenloses Security-Audit an – ohne Verpflichtung."',tech:'Status-Quo-Disruption durch kostenloses Audit',tips:['Kostenloses Audit = niedrigschwelliger Einstieg','Regulatorische Verschärfungen ankündigen (NIS2, KRITIS-Dachgesetz)'],opts:[{l:'✓ Nimmt kostenlosen Audit an',n:'need_analysis',c:'g'},{l:'✗ Weiterhin kein Interesse',n:'hard_no',c:'x'}]},
-  negotiation:{p:6,type:'process',title:'Verhandlung – Konditionen finalisieren',ctx:'Nie zuerst nachgeben. Konzessionen immer mit Gegenforderungen verknüpfen. Stille ist Ihre stärkste Waffe.',script:'„Wenn wir den Preis um 5% reduzieren, wären Sie bereit, die Vertragslaufzeit auf 24 Monate zu verlängern?"\n\n„Was wäre nötig, dass wir heute zum Abschluss kommen?"',tech:'Conditional Concession: Nie einseitig nachgeben – immer Gegenleistung verknüpfen',tips:['Höher anbieten als Zielpreis – Verhandlungsspielraum lassen','Stille nach letztem Angebot: 30 Sekunden schweigen = stärkste Taktik'],opts:[{l:'✓ Einigung erzielt',n:'close',c:'g'},{l:'⚠ Besteht auf weiterem Preisnachlass',n:'obj_too_expensive',c:'a'},{l:'⚠ Weitere Bedingungen',n:'negotiation',c:'a'}]},
-  close:{p:6,type:'success',title:'Abschluss – Vertrag unterzeichnet',ctx:'Der Abschluss ist erreicht. Jetzt beginnt die Onboarding-Phase. Vertrauen aufbauen, Referenzpotenzial sofort aktivieren.',script:'„Exzellent – ich freue mich auf die Zusammenarbeit. Wann soll der Einsatz beginnen?"\n\n[Nach Vertragsunterzeichnung]\n„Falls Sie Kollegen in ähnlichen Unternehmen kennen – ich wäre über eine Weiterempfehlung sehr dankbar."',tech:null,tips:['Onboarding sofort konkret planen','Referenzanfrage direkt nach Abschluss','Deal im CRM auf „Gewonnen" setzen'],opts:[]},
-  hard_no:{p:6,type:'info',title:'Klares Nein – professionell abschließen',ctx:'Nicht jeder Lead wird zum Kunden. Sauber abschließen, Tür für die Zukunft offen lassen.',script:'„Das respektiere ich. Darf ich abschließend fragen: Was hätte ich konkret tun können, um Sie zu überzeugen?" [Lernen]\n\n„Ich würde mich in 6 Monaten nochmal melden – ist das okay?"',tech:null,tips:['Immer um Feedback bitten – wertvoll für den Lernprozess','CRM: Reaktivierungstermin in 6 Monaten','Nie schlecht über Wettbewerber reden'],opts:[]},
-};
-
-// Virtual save-states (trigger save dialog, not real states)
-const PB_SAVE_TRIGGERS = new Set(['__save_no_answer','__save_callback','__save_blocked','__save_future','__save_followup']);
-const PB_SAVE_META = {
-  __save_no_answer: {outcome:'neutral', label:'Kein Erreichen', followupDays:2, followupText:'Erneuter Kontaktversuch'},
-  __save_callback:  {outcome:'neutral', label:'Rückruf vereinbart', followupDays:3, followupText:'Rückruf beim Entscheider'},
-  __save_blocked:   {outcome:'negative', label:'Gatekeeper blockiert', followupDays:30, followupText:'Erneuter Kontaktversuch – alternativer Weg'},
-  __save_future:    {outcome:'neutral', label:'Interesse – Zeitpunkt später', followupDays:90, followupText:'Nachfass-Anruf / Angebot zur Referenz'},
-  __save_followup:  {outcome:'neutral', label:'Follow-up vereinbart', followupDays:7, followupText:'Nachfassen – Entscheidung abfragen'},
-};
-
-// Wettbewerbsargumente: Warum I.S.Se.L besser ist als die Großen
-const PB_STRENGTHS = [
-  {
-    title:'👥 Festes Stammteam – keine Fremden',
-    text:'Bei Großanbietern rotieren ständig unbekannte Kräfte. Bei uns kennen unsere Mitarbeiter Ihr Objekt und Ihr Team persönlich – vom ersten Tag an.',
-    tag:'Verlässlichkeit'
-  },
-  {
-    title:'📞 Direkte Erreichbarkeit der Geschäftsführung',
-    text:'Kein Call-Center, kein Ticket-System. Sie erreichen uns direkt – und bekommen sofort eine Antwort. Bei Securitas & Co. sind Sie Kundennummer 74.832.',
-    tag:'Service'
-  },
-  {
-    title:'⚡ Reaktionszeit unter 20 Minuten',
-    text:'Wir sind regional verwurzelt. Unsere Einsatzzeiten liegen deutlich unter denen bundesweiter Anbieter – weil unsere Kräfte in der Region wohnen.',
-    tag:'Schnelligkeit'
-  },
-  {
-    title:'📋 100% § 34a GewO-qualifizierte Kräfte',
-    text:'Jede eingesetzte Kraft hat die vollständige Sachkundeprüfung – nicht nur den 40-Stunden-Unterricht. Das ist unser Standard, kein Sonderangebot.',
-    tag:'Qualität'
-  },
-  {
-    title:'🔄 Niedrige Fluktuation – stabile Teams',
-    text:'Die Branche hat 80–120% Fluktuation pro Jahr. Unsere liegt bei unter 25%. Ihre Mitarbeiter werden von denselben Menschen bewacht, die Ihr Objekt kennen.',
-    tag:'Stabilität'
-  },
-  {
-    title:'📝 Individuelle Dienstanweisungen statt Standardprotokoll',
-    text:'Wir entwickeln Ihr Sicherheitskonzept von Grund auf – zugeschnitten auf Ihre Objektstruktur, Schichten und Compliance-Anforderungen.',
-    tag:'Individualität'
-  },
-  {
-    title:'💶 Faire Preisgestaltung ohne versteckte Kosten',
-    text:'Unser Angebot ist transparent: Stundensatz, Ausfallkostenabsicherung, Kleidung, Equipment – alles inklusive. Keine Nachträge, keine Überraschungen.',
-    tag:'Transparenz'
-  },
-  {
-    title:'🏆 Regionale Referenzen aus Ihrer Branche',
-    text:'Wir sind in Ihrer Region tätig und können Referenzkunden aus Ihrer Branche nennen – die Sie direkt anrufen können. Kein Blatt vor dem Mund.',
-    tag:'Referenzen'
-  },
-  {
-    title:'🔒 KRITIS & NIS2-Kompetenz',
-    text:'Regulatorische Anforderungen werden strenger. Wir kennen die Anforderungen aus §8a BSI-Gesetz, NIS2 und dem KRITIS-Dachgesetz und beraten Sie proaktiv.',
-    tag:'Compliance'
-  },
-  {
-    title:'🤝 Kurze Entscheidungswege & Flexibilität',
-    text:'Sondereinsatz am Wochenende? Personalverstärkung kurzfristig? Bei uns gibt es keine 6-Wochen-Vorlaufzeit und keine Konzerngenehmigungsprozesse.',
-    tag:'Flexibilität'
-  },
+const LN_WHO = [
+  { k: 'decider',    icon: '👤', label: 'Entscheider am Apparat' },
+  { k: 'gatekeeper', icon: '🛡️', label: 'Zentrale / Sekretariat' },
+  { k: 'mailbox',    icon: '📼', label: 'Mailbox' },
+  { k: 'none',       icon: '❌', label: 'Niemand erreicht' },
 ];
 
-// Session state
-let pbCur = 'start';
-let pbHist = [];
-let pbQuestions = []; // [{id, text, phase, answered}]
-let pbContactId = '';
-let pbUserId = '';
-let pbStartTime = null;
-let pbSessionLog = []; // [{id, title, phase}] – full path for the activity note
+// Anklickbare Gesprächsereignisse je Gesprächspartner (mehrfach nutzbar)
+const LN_EVENTS = {
+  gatekeeper: [
+    'Durchgestellt zum Entscheider',
+    'Entscheider nicht im Haus',
+    'Name / Durchwahl des Entscheiders erhalten',
+    'Rückruf-Zeit genannt',
+    'Gatekeeper blockiert',
+    'Unterlagen an Info-Adresse gewünscht',
+  ],
+  decider: [
+    'Interesse – Bedarf besprochen',
+    'Wir haben schon einen Dienstleister',
+    'Vertrag läuft noch',
+    'Kein Interesse / kein Bedarf',
+    'Zu teuer / kein Budget',
+    'Keine Zeit – später melden',
+    'Unterlagen gewünscht',
+    'Muss intern entschieden werden',
+    'Falscher Ansprechpartner',
+    'Termin vereinbart',
+    'Rückruf vereinbart',
+  ],
+  mailbox: [
+    'Nachricht hinterlassen',
+    'Keine Nachricht hinterlassen',
+  ],
+  none: [
+    'Kein Abnehmen / besetzt',
+    'Nummer nicht vergeben',
+  ],
+};
+
+// Gesprächsergebnis → Kontakt-Badge (CR_OPTIONS) + optionale Wiedervorlage
+const LN_RESULTS = [
+  { k: 'appointment', icon: '📅', label: 'Termin vereinbart',       cr: 'appointment', due: 'Termin am',        task: 'Termin',                    dueDefault: null },
+  { k: 'callback',    icon: '📞', label: 'Rückruf vereinbart',      cr: 'callback',    due: 'Rückruf am',       task: 'Rückruf',                   dueDefault: 2 },
+  { k: 'interested',  icon: '⭐', label: 'Interesse – nachfassen',  cr: 'interested',  due: 'Nachfassen am',    task: 'Nachfassen',                dueDefault: 7 },
+  { k: 'mail',        icon: '📧', label: 'Unterlagen senden',       cr: 'mail',        due: 'Nachfassen am',    task: 'Unterlagen nachfassen',     dueDefault: 5 },
+  { k: 'contract',    icon: '📄', label: 'Vertrag läuft noch',      cr: 'interested',  due: 'Wiedervorlage am', task: 'Vertragsende nachfassen',   dueDefault: 90 },
+  { k: 'noanswer',    icon: '📼', label: 'Nicht erreicht',          cr: 'noanswer',    due: 'Erneut versuchen', task: 'Erneuter Kontaktversuch',   dueDefault: 2 },
+  { k: 'rejected',    icon: '✖️', label: 'Kein Interesse',          cr: 'rejected',    due: null,               task: null,                        dueDefault: null },
+];
+
+let lnContactId = '';
+let lnUserId    = '';
+let lnStartTime = null;
+let lnTimerInt  = null;
+let lnEvents    = [];   // [{ time:'14:02', label:'…' }]
+let lnWho       = '';
+let lnResult    = '';
 
 function pbReset() {
-  pbCur = 'start';
-  pbHist = [];
-  pbContactId = document.getElementById('pb-contact-hidden')?.value || '';
-  pbUserId = document.getElementById('pb-user-sel')?.value || '';
-  pbStartTime = new Date();
-  pbSessionLog = [];
-  pbQuestions = [];
-  renderPbState();
-  renderPbQuestions();
-  document.getElementById('pb-save-panel')?.style && (document.getElementById('pb-save-panel').style.display = 'none');
-}
-
-function pbSetUser(id) {
-  pbUserId = id;
-  // Update session info chip
-  const sessionEl = document.getElementById('pb-session-info');
-  if (sessionEl) {
-    const u = id ? DB.users.find(x => x.id === id) : null;
-    const mins = pbStartTime ? Math.round((new Date() - pbStartTime) / 60000) : 0;
-    sessionEl.innerHTML = `${pbSessionLog.length} Schritt${pbSessionLog.length!==1?'e':''} · ${mins} Min.
-      ${pbContactId ? '<br><span style="color:var(--green);font-weight:500">Kontakt ✓</span>' : '<br><span style="color:var(--orange)">Kein Kontakt</span>'}
-      ${u ? `<br><span style="display:inline-flex;align-items:center;gap:4px;margin-top:3px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${u.color||'#1565C0'};color:#fff;font-size:9px;font-weight:700">${userInitials(u)}</span>${esc(u.name)}</span>` : '<br><span style="color:var(--orange)">Kein Bearbeiter</span>'}`;
-  }
+  lnContactId = document.getElementById('ln-contact-hidden')?.value || lnContactId || '';
+  lnUserId    = document.getElementById('ln-user-sel')?.value || lnUserId || '';
+  lnStartTime = null;
+  clearInterval(lnTimerInt);
+  lnEvents = [];
+  lnWho    = '';
+  lnResult = '';
+  renderPlaybook();
 }
 
 function renderPlaybook() {
-  const el = document.getElementById('playbook-content');
+  const el = document.getElementById('page-playbook');
   if (!el) return;
-  el.innerHTML = buildPlaybookShell();
-  pbStartTime = new Date();
-  pbCur = 'start';
-  pbHist = [];
-  pbContactId = '';
-  pbSessionLog = [];
-  pbQuestions = [];
-  renderPbState();
-  setTimeout(pbInitNotesCounter, 80);
-}
+  const c = lnContactId ? DB.contacts.find(x => x.id === lnContactId) : null;
+  const started = !!lnStartTime;
 
-/* ══════════════════════════════════════════════════════════════
-   QUICK REFERENCE DATA – Checklisten & Einwandbehandlung
-══════════════════════════════════════════════════════════════ */
+  el.innerHTML = `
+  <div style="max-width:860px">
 
-const QUICK_REF_DATA = {
-  preCall: {
-    title: '📞 Vor dem Anruf',
-    checklist: [
-      { id: 'name', label: 'Name und Rolle geprüft', field: c => c.firstname && c.lastname },
-      { id: 'company', label: 'Unternehmen und Objektart verstanden', field: c => c.company && c.industry },
-      { id: 'trigger', label: 'Trigger gefunden', field: null },
-      { id: 'need', label: 'Sicherheits- oder Facility-Bedarf vermutet', field: null },
-      { id: 'benefit', label: 'Nutzenbezug klar', field: null },
-      { id: 'nextstep', label: 'Nächster Schritt vorbereitet', field: null }
-    ],
-    script: `"Guten Tag Herr/Frau [NAME], [IHR NAME] von Issel Security. Ich spezialisiere mich auf Werkschutzlösungen für [BRANCHE]-Unternehmen wie Ihres. Darf ich kurz erklären, warum ich genau Sie anrufe?"`
-  },
-  
-  postCall: {
-    title: '✅ Nach dem Gespräch',
-    checklist: [
-      { id: 'need_doc', label: 'Bedarf dokumentiert', field: null },
-      { id: 'service_doc', label: 'Relevante Leistung dokumentiert', field: null },
-      { id: 'location', label: 'Objektart und Standort notiert', field: null },
-      { id: 'urgency', label: 'Dringlichkeit bewertet', field: null },
-      { id: 'decision', label: 'Entscheiderrolle geklärt', field: null },
-      { id: 'objection', label: 'Einwand notiert (falls vorhanden)', field: null },
-      { id: 'next', label: 'Nächster Schritt festgelegt', field: null },
-      { id: 'visit', label: 'Objektbegehung oder Termin angeboten', field: null },
-      { id: 'followup', label: 'Follow-up versendet', field: null },
-      { id: 'reminder', label: 'Wiedervorlage gesetzt', field: null }
-    ]
-  },
-  
-  objections: [
-    {
-      id: 'obj_too_expensive',
-      label: '"Das ist zu teuer"',
-      script: `"Ich höre Sie – zu teuer im Vergleich zu was?" [Pause, zuhören]
-
-"Lassen Sie mich das kurz durchrechnen: Was kostet ein Einbruch, ein Sicherheitsvorfall oder ein Compliance-Verstoß Ihr Unternehmen? Unsere Lösung kostet [BETRAG] pro Monat – das ist eine kalkulierbare Versicherung gegen unkontrollierbare Risiken."`,
-      tech: 'ROI-Gegenkalkulation + Bumerang-Methode',
-      tips: [
-        'Nie sofort Preis senken – das signalisiert Verhandlungsspielraum',
-        'ROI konkret ausrechnen: Schadenkosten / Monatspreis = Break-even',
-        'Referenz-Cases nennen: "Kunde X spart seit 6 Monaten Y€ durch weniger Vorfälle"'
-      ]
-    },
-    {
-      id: 'obj_existing_provider',
-      label: '"Wir haben bereits einen Sicherheitsdienstleister"',
-      script: `"Das freut mich zu hören – das zeigt, dass Sicherheit bei Ihnen Priorität hat. Wie lange arbeiten Sie schon mit dem aktuellen Anbieter zusammen?" [Zuhören]
-
-"Darf ich fragen: Was läuft gut – und wo würden Sie sich etwas anders wünschen?" [Pause]`,
-      tech: 'Competitor Displacement – Schwachstellen aufdecken lassen',
-      tips: [
-        'Nie den aktuellen Dienstleister aktiv schlecht reden',
-        'Vertragslaufzeit erfragen: Wann läuft der Vertrag aus?',
-        'Angebot "zur Ansicht" schicken auch wenn Vertrag noch läuft'
-      ]
-    },
-    {
-      id: 'obj_no_time',
-      label: '"Keine Zeit / gerade ungünstig"',
-      script: `"Ich verstehe – deswegen versuche ich, es kurz zu halten. Ich brauche nur 8 Minuten von Ihnen. Wann haben Sie 8 Minuten in den nächsten 3 Tagen – Dienstag 10 Uhr oder Mittwoch 14 Uhr?"`,
-      tech: 'Alternative Closing + konkrete Zeitangabe',
-      tips: [
-        'Nie "irgendwann mal" akzeptieren',
-        'Zwei konkrete Optionen anbieten',
-        '8 Minuten ist niedrige Hemmschwelle'
-      ]
-    },
-    {
-      id: 'obj_no_interest',
-      label: '"Kein Bedarf / kein Interesse"',
-      script: `"Das kann ich verstehen. Darf ich kurz fragen: Wenn Sie sagen kein Bedarf – meinen Sie, Sie sind mit der aktuellen Lösung 100% zufrieden, oder ist Sicherheit gerade keine Priorität?" [Pause, klassifizieren]`,
-      tech: 'Klassifizierung: Echter Einwand vs. Reflex',
-      tips: [
-        '"Kein Bedarf" bedeutet oft: "Kein Vertrauen" oder "Nicht meine Priorität"',
-        'Regulatorischen Druck ansprechen: KRITIS, §34a GewO, Versicherungspflichten',
-        'Bei echtem Desinteresse: Höflich verabschieden + in 6 Monaten wieder kontaktieren'
-      ]
-    },
-    {
-      id: 'obj_no_budget',
-      label: '"Kein Budget / Budget vergeben"',
-      script: `"Ich verstehe. Darf ich fragen: Wann wird das Budget für nächstes Jahr geplant?" [Timing erfragen]
-
-"Wären Sie offen für einen Piloten – z.B. nur einen kritischen Bereich zu einem Einstiegspreis, der im aktuellen Budget Platz findet?"`,
-      tech: 'Pipeline Management + Pilot-Ansatz',
-      tips: [
-        'Budget-Zyklus verstehen – wann plant das Unternehmen?',
-        'Pilot/Einstiegslösung als Budget-schonenden Einstieg',
-        'CRM: Wiedervorlage 3 Monate vor nächster Budget-Runde'
-      ]
-    },
-    {
-      id: 'obj_send_materials',
-      label: '"Schicken Sie erstmal Unterlagen"',
-      script: `"Das mache ich sehr gerne – und damit die Unterlagen wirklich auf Ihre Situation passen, habe ich noch 2 kurze Fragen. Ist das jetzt kurz möglich, oder soll ich in 10 Minuten nochmal anrufen?"`,
-      tech: 'Conditional Close – Unterlagen nur mit Qualifizierung',
-      tips: [
-        'Nie Unterlagen schicken ohne konkreten Follow-up-Termin',
-        'Unterlagen direkt an den Entscheider adressieren',
-        'Follow-up 3-5 Tage nach Versand: "Welcher Aspekt hat Sie am meisten angesprochen?"'
-      ]
-    }
-  ],
-  
-  questions: {
-    bedarfsanalyse: {
-      title: 'Bedarfsanalyse (Phase 3)',
-      items: [
-        'Wie ist Ihr Sicherheitskonzept aktuell aufgestellt?',
-        'Was funktioniert gut – und wo sehen Sie Optimierungspotenzial?',
-        'Haben Sie zuletzt Vorfälle gehabt – Diebstahl, unbefugter Zutritt, Vandalismus?',
-        'Welche Compliance-Anforderungen müssen Sie erfüllen? KRITIS? ISO 27001?',
-        'Wer ist intern für Sicherheit zuständig – gibt es weitere Entscheider?',
-        'Wie groß ist Ihr Objekt / Gelände in Quadratmetern?',
-        'Welche Schichten müssen abgedeckt werden – Tag, Nacht, Wochenende?',
-        'Haben Sie aktuell interne Sicherheitsmitarbeiter oder extern?',
-        'Was ist Ihr größtes Sicherheitsrisiko aus Ihrer Sicht?',
-        'Gibt es saisonale Schwankungen im Sicherheitsbedarf?',
-        'Welche technischen Systeme nutzen Sie aktuell (Alarmanlagen, Kameras, Zutrittskontrolle)?',
-        'Wie schnell müssten wir im Notfall vor Ort sein können?'
-      ]
-    },
-    qualifizierung: {
-      title: 'Qualifizierung (BANT)',
-      items: [
-        'Budget: "Haben Sie ein Budget für Sicherheitsmaßnahmen eingeplant?"',
-        'Authority: "Wer ist neben Ihnen noch an der Entscheidung beteiligt?"',
-        'Need: "Was würde passieren, wenn Sie NICHTS ändern?"',
-        'Timing: "Bis wann möchten Sie eine Lösung implementiert haben?"'
-      ]
-    }
-  }
-};
-
-let pbMode = 'guided'; // 'guided' oder 'quick'
-
-function switchPbMode(mode) {
-  pbMode = mode;
-  document.getElementById('pb-mode-guided').style.display = mode === 'guided' ? 'block' : 'none';
-  document.getElementById('pb-mode-quick').style.display = mode === 'quick' ? 'block' : 'none';
-  document.getElementById('pb-tab-guided').classList.toggle('active', mode === 'guided');
-  document.getElementById('pb-tab-quick').classList.toggle('active', mode === 'quick');
-  
-  // PHASE 5: ARIA-Attributes für Accessibility
-  document.getElementById('pb-tab-guided')?.setAttribute('aria-selected', mode === 'guided');
-  document.getElementById('pb-tab-quick')?.setAttribute('aria-selected', mode === 'quick');
-  
-  if (mode === 'quick') {
-    renderQuickReference();
-  }
-}
-
-function buildPlaybookShell() {
-  const quickJumps = [
-    {v:'obj_no_interest',l:'Kein Bedarf / kein Interesse'},
-    {v:'obj_existing_provider',l:'Haben bereits einen Dienstleister'},
-    {v:'obj_no_time',l:'Keine Zeit gerade'},
-    {v:'obj_too_expensive',l:'Das ist zu teuer'},
-    {v:'obj_no_budget',l:'Kein Budget vorhanden'},
-    {v:'obj_think_about_it',l:'Muss ich noch überlegen'},
-    {v:'obj_internal_decision',l:'Muss intern entschieden werden'},
-    {v:'obj_competitor_cheaper',l:'Konkurrenz ist günstiger'},
-    {v:'obj_bad_experience',l:'Schlechte Erfahrungen gemacht'},
-    {v:'obj_quality_doubts',l:'Qualitätszweifel'},
-    {v:'obj_too_short_notice',l:'Zu kurzfristig'},
-    {v:'obj_status_quo',l:'Wir sind zufrieden so'},
-    {v:'obj_send_materials',l:'Schicken Sie erstmal Unterlagen'},
-    {v:'obj_gk_no_interest',l:'Gatekeeper: Kein Interesse'},
-  ];
-  const contactOptions = DB.contacts.map(c =>
-    `<option value="${c.id}">${esc(c.company)} – ${esc([c.firstname, c.lastname].filter(Boolean).join(' ') || '\u2013')}</option>`
-  ).join('');
-  return `
-  <!-- Mode Tabs -->
-  <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);position:relative" role="tablist" aria-label="Playbook Modi">
-    <button class="pb-mode-tab active" onclick="switchPbMode('guided')" id="pb-tab-guided"
-      role="tab" aria-selected="true" aria-controls="pb-mode-guided"
-      style="padding:10px 18px;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;position:relative;top:2px">
-      🎯 Guided Mode
-    </button>
-    <button class="pb-mode-tab" onclick="switchPbMode('quick')" id="pb-tab-quick"
-      role="tab" aria-selected="false" aria-controls="pb-mode-quick"
-      style="padding:10px 18px;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;position:relative;top:2px">
-      ⚡ Quick Reference
-    </button>
-    <!-- Swipe Hint (nur auf Mobile) -->
-    <div id="pb-swipe-hint" style="display:none;position:absolute;right:8px;bottom:8px;font-size:11px;color:var(--text3);pointer-events:none" aria-hidden="true">
-      👆 Swipe zum Wechseln
-    </div>
-  </div>
-
-  <!-- Guided Mode (bisheriger Wizard) -->
-  <div id="pb-mode-guided">
-  <!-- Contact selector banner -->
-  <div class="card" style="margin-bottom:16px;border-left:4px solid var(--accent)">
-    <div class="card-body" style="padding:14px 18px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15" style="color:var(--accent);flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>
-          <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">Gespräch mit:</label>
-          <div class="cs-wrap" style="flex:1;min-width:180px">
-            <svg class="cs-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/></svg>
-            <input type="text" class="cs-input" id="pb-contact-search" placeholder="Kontakt suchen..." autocomplete="off"
-              style="padding-left:30px"
-              oninput="csFilter('pb-contact-search','pb-contact-dropdown','pb-contact-hidden');pbSetContact(document.getElementById('pb-contact-hidden').value)"
-              onfocus="csFilter('pb-contact-search','pb-contact-dropdown','pb-contact-hidden')"
-              onkeydown="csKeyNav(event,'pb-contact-dropdown','pb-contact-hidden','pb-contact-search',function(id){pbSetContact(id)})">
-            <div class="cs-dropdown" id="pb-contact-dropdown"></div>
-            <input type="hidden" id="pb-contact-hidden">
-            <input type="hidden" id="pb-contact-sel">
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;min-width:180px">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15" style="color:var(--text3);flex-shrink:0"><circle cx="12" cy="8" r="4" stroke-width="2"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke-width="2" stroke-linecap="round"/></svg>
-          <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">Bearbeiter:</label>
-          <select id="pb-user-sel" onchange="pbSetUser(this.value)"
-            style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none;cursor:pointer">
-            <option value="">— Bearbeiter wählen —</option>
-            ${DB.users.filter(u=>u.active!==false).map(u=>`<option value="${u.id}">${esc(u.name)}${u.role?' – '+esc(u.role):''}</option>`).join('')}
-          </select>
-        </div>
-        <div id="pb-contact-info" style="display:none;font-size:12px;color:var(--text2);background:var(--bg);padding:6px 12px;border-radius:7px;border:1px solid var(--border)"></div>
-        <button class="btn btn-secondary btn-sm" onclick="pbReset()">↺ Neustart</button>
-      </div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 264px;gap:20px;align-items:start">
-    <div>
-      <!-- Phase bar -->
-      <div id="pb-phases" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px"></div>
-      <!-- Breadcrumb -->
-      <div id="pb-bc" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-height:20px;margin-bottom:12px;font-size:11.5px"></div>
-      <!-- Main card -->
-      <div class="card" style="margin-bottom:12px">
-        <div id="pb-card-header" class="card-header"></div>
-        <div class="card-body" id="pb-card-body"></div>
-      </div>
-      <!-- Options -->
-      <div id="pb-opts" style="display:flex;flex-direction:column;gap:7px;margin-bottom:12px"></div>
-      <!-- Save panel (terminal states) -->
-      <div id="pb-save-panel" style="display:none"></div>
-      <!-- Footer nav -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-secondary btn-sm" id="pb-back" onclick="pbBack()">← Zurück</button>
-        </div>
-        <span style="font-size:11px;color:var(--text3)" id="pb-step"></span>
-      </div>
-    </div>
-    <!-- Sidebar -->
-    <div>
-      <!-- Einwand-Schnellzugriff -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><div class="card-title">⚡ Einwand-Schnellzugriff</div></div>
-        <div class="card-body" style="padding:10px 14px">
-          <select style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:var(--bg);outline:none;cursor:pointer" onchange="pbJump(this.value);this.value=''">
-            <option value="">— Einwand auswählen —</option>
-            ${quickJumps.map(j=>`<option value="${j.v}">${j.l}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-
-      <!-- Gesprächsnotizen (Freitextfeld) -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header">
-          <div class="card-title">📝 Gesprächsnotizen</div>
-        </div>
-        <div class="card-body" style="padding:10px 14px">
-          <textarea id="pb-live-notes" placeholder="Notizen während des Gesprächs...&#10;Wichtige Infos, Stichworte, To-dos"></textarea>
-          <div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:right" id="pb-notes-counter">0 Zeichen</div>
-        </div>
-      </div>
-
-      <!-- Gestellte Fragen vom Kunden -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header" style="cursor:pointer" onclick="pbToggleSection('pb-sec-fragen')">
-          <div class="card-title">❓ Kundenfragen dokumentieren</div>
-          <span style="font-size:18px;color:var(--text3);transition:transform .2s" id="pb-sec-fragen-arrow">▾</span>
-        </div>
-        <div id="pb-sec-fragen" style="padding:10px 14px">
-          <div class="pb-q-input-row">
-            <input id="pb-q-input" type="text" placeholder="Frage eingeben..." onkeydown="if(event.key==='Enter')pbAddQuestion()">
-            <button class="btn btn-secondary btn-sm" onclick="pbAddQuestion()" title="Frage hinzufügen" style="padding:7px 10px">+</button>
-          </div>
-          <div style="display:flex;gap:6px;margin-bottom:8px">
-            <button class="btn btn-sm" style="background:var(--orange-light);color:var(--orange);border:1px solid var(--orange);font-size:11px;padding:4px 8px" onclick="pbAddQuestion('unanswered')" title="Als nicht beantwortet markieren">⚠ Offen</button>
-            <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border:1px solid var(--green);font-size:11px;padding:4px 8px" onclick="pbAddQuestion('answered')" title="Als beantwortet markieren">✓ Beantwortet</button>
-          </div>
-          <div id="pb-questions-list"><div style="font-size:11.5px;color:var(--text3);padding:6px 0;text-align:center">Noch keine Fragen erfasst</div></div>
-          <div id="pb-q-stats" style="display:none;font-size:11px;margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:6px;color:var(--text2)"></div>
-        </div>
-      </div>
-
-      <!-- Unsere Stärken vs. Große -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header" style="cursor:pointer" onclick="pbToggleSection('pb-sec-staerken')">
-          <div class="card-title">🏆 Stärken vs. Großanbieter</div>
-          <span style="font-size:18px;color:var(--text3);transition:transform .2s" id="pb-sec-staerken-arrow">▾</span>
-        </div>
-        <div id="pb-sec-staerken" style="padding:10px 14px;max-height:320px;overflow-y:auto">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Klicken zum Kopieren des Arguments</div>
-          ${PB_STRENGTHS.map((s,i)=>`
-          <div class="pb-strength-item" id="str-${i}" onclick="pbCopyStrength(${i})" title="Klicken zum Kopieren">
-            <strong>${s.title}</strong>
-            <span>${s.text}</span>
-            <span style="display:inline-block;margin-top:4px;font-size:10px;padding:1px 6px;background:var(--accent-light);color:var(--accent);border-radius:4px;font-weight:600">${s.tag}</span>
-          </div>`).join('')}
-        </div>
-      </div>
-
-      <!-- Session + Legende -->
-      <div class="card">
-        <div class="card-header"><div class="card-title">Legende & Session</div></div>
-        <div class="card-body" style="padding:12px 16px">
-          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text2)">
-            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:2px;background:var(--green);flex-shrink:0"></div>Vorwärts / Abschluss</div>
-            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:2px;background:var(--orange);flex-shrink:0"></div>Einwand / Hürde</div>
-            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:2px;background:var(--red);flex-shrink:0"></div>Ablehnung / Risiko</div>
-            <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent);flex-shrink:0"></div>Nächster Schritt</div>
-          </div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Session</div>
-            <div style="font-size:11.5px;color:var(--text2)" id="pb-session-info">Noch keine Schritte</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- Ende Guided Mode -->
-  </div>
-
-  <!-- Quick Reference Mode -->
-  <div id="pb-mode-quick" style="display:none">
-    <!-- Contact selector banner (auch im Quick Mode) -->
-    <div class="card" style="margin-bottom:16px;border-left:4px solid var(--accent)">
-      <div class="card-body" style="padding:14px 18px">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15" style="color:var(--accent);flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>
-            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">Gespräch mit:</label>
-            <div class="cs-wrap" style="flex:1;min-width:180px">
-              <svg class="cs-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2"/></svg>
-              <input type="text" class="cs-input" id="qr-contact-search" placeholder="Kontakt suchen..." autocomplete="off"
-                style="padding-left:30px"
-                oninput="csFilter('qr-contact-search','qr-contact-dropdown','qr-contact-hidden')"
-                onfocus="csFilter('qr-contact-search','qr-contact-dropdown','qr-contact-hidden')"
-                onkeydown="csKeyNav(event,'qr-contact-dropdown','qr-contact-hidden','qr-contact-search',function(id){qrSetContact(id)})">
-              <div class="cs-dropdown" id="qr-contact-dropdown"></div>
-              <input type="hidden" id="qr-contact-hidden" onchange="qrSetContact(this.value)">
+    <!-- Schritt 1: Anruf vorbereiten -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">📞 Leadnotiz – Anruf</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end">
+          <div>
+            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt *</label>
+            <div class="cs-wrap" style="position:relative">
+              <input type="text" class="cs-input" id="ln-contact-search" placeholder="Kontakt suchen…" autocomplete="off"
+                style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;outline:none"
+                oninput="csFilter('ln-contact-search','ln-contact-dropdown','ln-contact-hidden');lnSetContact(document.getElementById('ln-contact-hidden').value)"
+                onfocus="csFilter('ln-contact-search','ln-contact-dropdown','ln-contact-hidden')"
+                onkeydown="csKeyNav(event,'ln-contact-dropdown','ln-contact-hidden','ln-contact-search',function(id){lnSetContact(id)})">
+              <div class="cs-dropdown" id="ln-contact-dropdown"></div>
+              <input type="hidden" id="ln-contact-hidden" value="${esc(lnContactId)}">
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;min-width:180px">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15" style="color:var(--text3);flex-shrink:0"><circle cx="12" cy="8" r="4" stroke-width="2"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke-width="2" stroke-linecap="round"/></svg>
-            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">Bearbeiter:</label>
-            <select id="qr-user-sel" onchange="qrSetUser(this.value)"
-              style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none;cursor:pointer">
-              <option value="">— Bearbeiter wählen —</option>
-              ${DB.users.filter(u=>u.active!==false).map(u=>`<option value="${u.id}">${esc(u.name)}${u.role?' – '+esc(u.role):''}</option>`).join('')}
+          <div>
+            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Bearbeiter</label>
+            <select class="form-select" id="ln-user-sel" onchange="lnUserId=this.value">
+              <option value="">– wählen –</option>
+              ${DB.users.filter(u => u.active !== false).map(u => `<option value="${u.id}"${u.id === (lnUserId || getCurrentDbUserId()) ? ' selected' : ''}>${esc(u.name)}</option>`).join('')}
             </select>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="qrRefresh()">↺ Aktualisieren</button>
+        </div>
+        <div id="ln-contact-info" style="margin-top:12px">${c ? lnContactInfoHtml(c) : ''}</div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:14px">
+          ${started
+            ? `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--green)"><span class="sync-dot pulse" style="background:var(--green)"></span> Anruf läuft · <span id="ln-timer">0:00</span></span>`
+            : `<button class="btn btn-primary" onclick="lnStart()" ${c ? '' : 'disabled title="Bitte zuerst Kontakt wählen"'}>▶ Anruf starten</button>`}
         </div>
       </div>
     </div>
-    
-    <div id="qr-content"></div>
-  </div>
-  `;
-}
 
-/* ══════════════════════════════════════════════════════════════
-   QUICK REFERENCE RENDERING
-══════════════════════════════════════════════════════════════ */
-
-function renderQuickReference() {
-  const el = document.getElementById('qr-content');
-  if (!el) return;
-  
-  // PHASE 4: Loading State
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3)">
-      <div style="text-align:center">
-        <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-        <div style="font-size:13px">Lade Quick Reference...</div>
-      </div>
-    </div>
-  `;
-  
-  // Render nach kurzer Verzögerung (smooth transition)
-  setTimeout(() => {
-    const contact = pbContactId ? DB.contacts.find(c => c.id === pbContactId) : null;
-  
-  // Pre-Call Checklist mit Auto-Check
-  const preCallHtml = `
+    ${started ? `
+    <!-- Schritt 2: Gesprächsverlauf -->
     <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div class="card-title">${QUICK_REF_DATA.preCall.title}</div>
-      </div>
-      <div class="card-body" style="padding:16px 20px">
-        ${QUICK_REF_DATA.preCall.checklist.map(item => {
-          const isChecked = item.field && contact ? item.field(contact) : false;
-          return `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);last-of-type:border-bottom:none">
-              <input type="checkbox" id="qr-pre-${item.id}" ${isChecked?'checked':''} 
-                style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent)">
-              <label for="qr-pre-${item.id}" style="flex:1;font-size:13.5px;color:var(--text);cursor:pointer">
-                ${item.label}
-                ${isChecked ? '<span style="margin-left:6px;color:var(--green);font-size:11px">✓ aus CRM</span>' : ''}
-              </label>
-            </div>
-          `;
-        }).join('')}
-        
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Gesprächseinstieg</div>
-          <div style="background:var(--bg);padding:12px;border-radius:8px;font-size:13px;color:var(--text2);line-height:1.6;font-family:monospace;white-space:pre-wrap">${QUICK_REF_DATA.preCall.script}</div>
-          <button class="btn btn-secondary btn-sm" onclick="qrCopyScript('preCall')" style="margin-top:8px">
-            📋 In Zwischenablage kopieren
-          </button>
+      <div class="card-header"><div class="card-title">🗣️ Wer geht ran?</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+          ${LN_WHO.map(w => `<button class="btn ${lnWho === w.k ? 'btn-primary' : 'btn-secondary'}" style="justify-content:flex-start" onclick="lnSetWho('${w.k}')">${w.icon} ${esc(w.label)}</button>`).join('')}
         </div>
-      </div>
-    </div>
-  `;
-  
-  // Einwand-Behandlung mit Suche
-  const objectionsHtml = `
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div class="card-title">⚡ Einwand-Behandlung</div>
-      </div>
-      <div class="card-body" style="padding:16px 20px">
-        <input type="text" id="qr-obj-search" placeholder="🔍 Einwand durchsuchen..." 
-          oninput="qrFilterObjections(this.value)"
-          style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;transition:border-color .2s">
-        
-        <div id="qr-objections-list">
-          ${QUICK_REF_DATA.objections.map((obj, idx) => `
-            <div class="qr-objection-item" data-label="${obj.label.toLowerCase()}" data-keywords="${obj.tips.join(' ').toLowerCase()}">
-              <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;border-radius:8px;background:var(--bg);margin-bottom:8px"
-                onclick="qrToggleObjection(${idx})">
-                <strong style="font-size:14px;color:var(--navy);font-family:'Outfit',sans-serif">${obj.label}</strong>
-                <span id="qr-obj-arrow-${idx}" style="font-size:16px;color:var(--text3);transition:transform .2s">▾</span>
-              </div>
-              <div id="qr-obj-content-${idx}" style="display:none;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
-                <div style="margin-bottom:12px">
-                  <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Skript</div>
-                  <div style="background:var(--bg);padding:12px;border-radius:6px;font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap;font-family:monospace">${obj.script}</div>
-                </div>
-                <div style="margin-bottom:12px">
-                  <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Technik</div>
-                  <div style="font-size:13px;color:var(--accent);font-weight:500">${obj.tech}</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Tipps</div>
-                  ${obj.tips.map(tip => `
-                    <div style="font-size:12.5px;color:var(--text2);margin-bottom:4px;padding-left:16px;position:relative">
-                      <span style="position:absolute;left:0;color:var(--accent)">•</span>
-                      ${tip}
-                    </div>
-                  `).join('')}
-                </div>
-                <button class="btn btn-secondary btn-sm" onclick="qrCopyObjection(${idx})" style="margin-top:10px">
-                  📋 Skript kopieren
-                </button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Qualifizierungs-Fragen
-  const questionsHtml = `
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div class="card-title">❓ Qualifizierungs-Fragen</div>
-      </div>
-      <div class="card-body" style="padding:16px 20px">
-        ${Object.entries(QUICK_REF_DATA.questions).map(([key, section]) => `
-          <div style="margin-bottom:20px;last-of-type:margin-bottom:0">
-            <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;font-family:'Outfit',sans-serif">${section.title}</div>
-            ${section.items.map((q, i) => `
-              <div style="font-size:13px;color:var(--text2);padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;line-height:1.6">
-                ${i + 1}. ${q}
-              </div>
-            `).join('')}
+
+        ${lnWho ? `
+        <div style="margin-top:18px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Was passiert? (anklicken – landet im Protokoll)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${(LN_EVENTS[lnWho] || []).map(evt => `<button class="btn btn-secondary btn-sm" onclick="lnLogEvent(this.textContent.trim())">${esc(evt)}</button>`).join('')}
           </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-  
-  // Post-Call Checklist
-  const postCallHtml = `
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div class="card-title">${QUICK_REF_DATA.postCall.title}</div>
-      </div>
-      <div class="card-body" style="padding:16px 20px">
-        <!-- Gesprächsnotizen ZUERST -->
-        <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">📝 Gesprächsnotizen</div>
-          <textarea id="qr-live-notes" placeholder="Wichtige Infos, Stichworte, To-dos während des Gesprächs..." 
-            style="width:100%;min-height:100px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--card);outline:none;resize:vertical;font-family:'DM Sans',sans-serif"></textarea>
-        </div>
-        
-        ${QUICK_REF_DATA.postCall.checklist.map(item => `
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);last-of-type:border-bottom:none">
-            <input type="checkbox" id="qr-post-${item.id}" 
-              style="width:18px;height:18px;cursor:pointer;accent-color:var(--green)">
-            <label for="qr-post-${item.id}" style="flex:1;font-size:13.5px;color:var(--text);cursor:pointer">
-              ${item.label}
-            </label>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input type="text" id="ln-custom-event" placeholder="Eigenes Ereignis notieren…" style="flex:1;padding:8px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;outline:none"
+              onkeydown="if(event.key==='Enter')lnLogCustomEvent()">
+            <button class="btn btn-secondary btn-sm" onclick="lnLogCustomEvent()">+ Hinzufügen</button>
           </div>
-        `).join('')}
-        
-        <button class="btn btn-primary" onclick="qrSavePostCallChecklist()" style="margin-top:16px;width:100%">
-          💾 Protokoll speichern (inkl. Checklisten & Notizen)
-        </button>
-      </div>
-    </div>
-  `;
-  
-  el.innerHTML = `
-    <div style="display:grid;gap:20px">
-      ${preCallHtml}
-      ${objectionsHtml}
-      ${questionsHtml}
-      ${postCallHtml}
-    </div>
-  `;
-  }, 50); // Kurze Verzögerung für smooth loading
-}
+        </div>` : ''}
 
-// Helper Functions
-function qrToggleObjection(idx) {
-  const content = document.getElementById(`qr-obj-content-${idx}`);
-  const arrow = document.getElementById(`qr-obj-arrow-${idx}`);
-  const isOpen = content.style.display !== 'none';
-  content.style.display = isOpen ? 'none' : 'block';
-  arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-}
-
-function qrFilterObjections(query) {
-  const items = document.querySelectorAll('.qr-objection-item');
-  const lowerQuery = query.toLowerCase();
-  items.forEach(item => {
-    const label = item.dataset.label || '';
-    const keywords = item.dataset.keywords || '';
-    const matches = label.includes(lowerQuery) || keywords.includes(lowerQuery);
-    item.style.display = matches ? 'block' : 'none';
-  });
-}
-
-function qrCopyScript(type) {
-  const text = type === 'preCall' ? QUICK_REF_DATA.preCall.script : '';
-  navigator.clipboard.writeText(text).then(() => {
-    toast('Skript in Zwischenablage kopiert', 'success');
-  }).catch(() => {
-    toast('Kopieren fehlgeschlagen', 'error');
-  });
-}
-
-function qrCopyObjection(idx) {
-  const obj = QUICK_REF_DATA.objections[idx];
-  const text = `${obj.label}\n\n${obj.script}\n\nTechnik: ${obj.tech}`;
-  navigator.clipboard.writeText(text).then(() => {
-    toast('Einwand-Skript kopiert', 'success');
-  }).catch(() => {
-    toast('Kopieren fehlgeschlagen', 'error');
-  });
-}
-
-function qrSavePostCallChecklist() {
-  if (!pbContactId) {
-    toast('Bitte wählen Sie zuerst einen Kontakt aus', 'warning');
-    return;
-  }
-  
-  // Sammle PRE-CALL Checkliste
-  const preCallItems = QUICK_REF_DATA.preCall.checklist
-    .filter(item => document.getElementById(`qr-pre-${item.id}`)?.checked)
-    .map(item => `✓ ${item.label}`)
-    .join('\n');
-  
-  // Sammle POST-CALL Checkliste
-  const postCallItems = QUICK_REF_DATA.postCall.checklist
-    .filter(item => document.getElementById(`qr-post-${item.id}`)?.checked)
-    .map(item => `✓ ${item.label}`)
-    .join('\n');
-  
-  // Sammle Gesprächsnotizen aus Quick Reference Feld
-  const liveNotes = document.getElementById('qr-live-notes')?.value?.trim() || '';
-  
-  // Baue strukturiertes Protokoll
-  let notes = `═══════════════════════════════════════
-GESPRÄCHSPROTOKOLL (Quick Reference)
-═══════════════════════════════════════
-
-`;
-  
-  if (preCallItems) {
-    notes += `📞 VOR DEM ANRUF – Vorbereitung:\n${preCallItems}\n\n`;
-  }
-  
-  if (liveNotes) {
-    notes += `💬 GESPRÄCHSNOTIZEN:\n${liveNotes}\n\n`;
-  }
-  
-  if (postCallItems) {
-    notes += `✅ NACH DEM GESPRÄCH – Dokumentation:\n${postCallItems}\n\n`;
-  }
-  
-  if (!preCallItems && !postCallItems && !liveNotes) {
-    notes += 'Keine Items markiert oder Notizen erfasst.\n';
-  }
-  
-  notes += `\n───────────────────────────────────────
-Erfasst am: ${new Date().toLocaleString('de-DE')}
-Bearbeiter: ${pbUserId ? (DB.users.find(u => u.id === pbUserId)?.name || 'Unbekannt') : 'Nicht zugewiesen'}
-───────────────────────────────────────`;
-  
-  // Aktivität speichern
-  const contact = DB.contacts.find(c => c.id === pbContactId);
-  const act = {
-    id: uid(),
-    type: 'call',
-    contactId: pbContactId,
-    subject: `Gesprächsprotokoll – ${contact?.company || 'Kontakt'}`,
-    notes,
-    date: new Date().toISOString(),
-    userId: pbUserId || ''
-  };
-  
-  DB.activities.push(act);
-  save();
-  toast('✓ Protokoll mit Checklisten gespeichert', 'success');
-  
-  // Zur Kontaktakte springen
-  showAkte(pbContactId);
-}
-
-// Quick Reference: Kontakt setzen
-function qrSetContact(id) {
-  pbContactId = id;
-  // Re-render um Auto-Checks zu aktualisieren
-  renderQuickReference();
-}
-
-// Quick Reference: User setzen
-function qrSetUser(id) {
-  pbUserId = id;
-}
-
-// Quick Reference: Komplett neu laden
-function qrRefresh() {
-  renderQuickReference();
-  toast('Quick Reference aktualisiert', 'success');
-}
-
-// Von Guided Mode zu Quick Reference springen (bei Einwänden)
-function pbJumpToQuickRef(objIdx) {
-  switchPbMode('quick');
-  // Warte bis Quick Reference gerendert ist
-  setTimeout(() => {
-    // Scrolle zum Einwand und klappe auf
-    qrToggleObjection(objIdx);
-    const elem = document.getElementById(`qr-obj-content-${objIdx}`);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, 100);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   SWIPE NAVIGATION (Mobile Touch)
-══════════════════════════════════════════════════════════════ */
-
-let touchStartX = 0;
-let touchEndX = 0;
-
-function initSwipeNavigation() {
-  const playbook = document.getElementById('playbook-content');
-  if (!playbook) return;
-  
-  playbook.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-  }, { passive: true });
-  
-  playbook.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    handleSwipe();
-  }, { passive: true });
-}
-
-function handleSwipe() {
-  const swipeThreshold = 100; // Mindestens 100px swipe
-  const diff = touchStartX - touchEndX;
-  
-  // Swipe Left (nach links wischen) → Quick Reference
-  if (diff > swipeThreshold && pbMode === 'guided') {
-    switchPbMode('quick');
-  }
-  
-  // Swipe Right (nach rechts wischen) → Guided Mode
-  if (diff < -swipeThreshold && pbMode === 'quick') {
-    switchPbMode('guided');
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   PHASE 5: KEYBOARD SHORTCUTS
-══════════════════════════════════════════════════════════════ */
-
-function initKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // Nur im Playbook aktiv
-    const currentPage = document.querySelector('#main > div:not(.hide)');
-    if (!currentPage || currentPage.id !== 'page-vertriebsleitfaden') return;
-    
-    // ESC: Schließe Save Panel / Modals
-    if (e.key === 'Escape') {
-      const savePanel = document.getElementById('pb-save-panel');
-      if (savePanel && savePanel.style.display !== 'none') {
-        savePanel.style.display = 'none';
-        e.preventDefault();
-      }
-    }
-    
-    // Ctrl/Cmd + Q: Quick Reference Mode
-    if ((e.ctrlKey || e.metaKey) && e.key === 'q') {
-      switchPbMode('quick');
-      e.preventDefault();
-    }
-    
-    // Ctrl/Cmd + G: Guided Mode
-    if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
-      switchPbMode('guided');
-      e.preventDefault();
-    }
-    
-    // Ctrl/Cmd + S: Speichern (wenn Save Panel offen)
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      const savePanel = document.getElementById('pb-save-panel');
-      if (savePanel && savePanel.style.display !== 'none') {
-        const saveBtn = savePanel.querySelector('button.btn-primary');
-        if (saveBtn) {
-          saveBtn.click();
-          e.preventDefault();
-        }
-      }
-    }
-    
-    // Pfeil Links: Zurück im Guided Mode
-    if (e.key === 'ArrowLeft' && pbMode === 'guided' && pbHist.length > 0) {
-      pbGoBack();
-      e.preventDefault();
-    }
-  });
-}
-
-// Initialize on page load
-if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initSwipeNavigation, 500);
-    initKeyboardShortcuts();
-  });
-}
-
-function pbSetContact(id) {
-  pbContactId = id;
-  const infoEl = document.getElementById('pb-contact-info');
-  if (!infoEl) return;
-  if (!id) { infoEl.style.display = 'none'; return; }
-  const c = DB.contacts.find(x => x.id === id);
-  if (!c) { infoEl.style.display = 'none'; return; }
-  infoEl.style.display = 'block';
-  infoEl.innerHTML = `<strong>${esc(c.company)}</strong> · ${esc(c.industry||'')} · Status: <span style="color:var(--accent);font-weight:600">${esc(c.status||'')}</span>${c.currentProvider?' · Aktueller Dienstleister: '+esc(c.currentProvider):''}`;
-}
-
-function pbLogStep(stateId) {
-  const st = PB_STATES[stateId];
-  if (!st) return;
-  if (!pbSessionLog.find(x => x.id === stateId)) {
-    pbSessionLog.push({id: stateId, title: st.title, phase: PB_PHASES[st.p].name});
-  }
-}
-
-function renderPbState() {
-  const st = PB_STATES[pbCur];
-  if (!st) return;
-  pbLogStep(pbCur);
-  const pm = PB_PHASES[st.p];
-
-  // Hide save panel by default
-  const savePanel = document.getElementById('pb-save-panel');
-  if (savePanel) savePanel.style.display = 'none';
-
-  // Session info
-  const sessionEl = document.getElementById('pb-session-info');
-  if (sessionEl) {
-    const mins = pbStartTime ? Math.round((new Date() - pbStartTime) / 60000) : 0;
-    const u = pbUserId ? DB.users.find(x => x.id === pbUserId) : null;
-    sessionEl.innerHTML = `<span style="font-weight:600;color:var(--text)">${pbSessionLog.length}</span> Schritt${pbSessionLog.length!==1?'e':''} · <span style="font-weight:600;color:var(--text)">${mins}</span> Min.
-      <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
-        ${pbContactId
-          ? `<span style="color:var(--green);font-size:11px;font-weight:500">✓ Kontakt gewählt</span>`
-          : `<span style="color:var(--orange);font-size:11px">⚠ Kein Kontakt</span>`}
-        ${u
-          ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${u.color||'#1565C0'};color:#fff;font-size:9px;font-weight:700;flex-shrink:0">${userInitials(u)}</span>${esc(u.name)}</span>`
-          : `<span style="color:var(--orange);font-size:11px">⚠ Kein Bearbeiter</span>`}
-      </div>`;
-  }
-
-  // Phase bar
-  const phEl = document.getElementById('pb-phases');
-  if (phEl) {
-    phEl.innerHTML = Object.entries(PB_PHASES).map(([k,m]) => {
-      const ki = parseInt(k);
-      let bg = 'var(--bg)', color = 'var(--text3)', border = '1px solid var(--border)';
-      if (ki === st.p) { bg = pm.bg; color = pm.color; border = `1px solid ${pm.color}`; }
-      else if (ki < st.p) { bg = 'var(--bg)'; color = 'var(--text3)'; border = '1px solid var(--border2)'; }
-      return `<div style="padding:6px 4px;text-align:center;font-size:10px;font-weight:600;border-radius:7px;background:${bg};color:${color};border:${border};line-height:1.4;transition:all .2s;opacity:${ki>st.p?0.5:1}">${m.name}</div>`;
-    }).join('');
-  }
-
-  // Breadcrumb
-  const bcEl = document.getElementById('pb-bc');
-  if (bcEl) {
-    if (pbHist.length > 0) {
-      bcEl.innerHTML = pbHist.slice(-4).map((id, i, arr) =>
-        `<button onclick="pbGoTo(${pbHist.length - arr.length + i})" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text3);font-family:'DM Sans',sans-serif;padding:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${PB_STATES[id]?.title||''}">${(PB_STATES[id]?.title||'').substring(0,18)}${(PB_STATES[id]?.title||'').length>18?'…':''}</button><span style="color:var(--border2);margin:0 2px"> › </span>`
-      ).join('') + `<span style="font-size:11px;color:var(--text2);font-weight:500">${st.title.substring(0,26)}${st.title.length>26?'…':''}</span>`;
-    } else {
-      bcEl.innerHTML = '<span style="font-size:11px;color:var(--text3)">Start</span>';
-    }
-  }
-
-  // Type styling
-  const typeColors = {process:{bg:'var(--accent-light)',col:'var(--accent)'},objection:{bg:'var(--red-light)',col:'var(--red)'},success:{bg:'var(--green-light)',col:'var(--green)'},info:{bg:'var(--orange-light)',col:'var(--orange)'}};
-  const typeLabels = {process:'Prozessschritt',objection:'Einwand',success:'Abschluss',info:'Info'};
-  const tc = typeColors[st.type] || typeColors.process;
-
-  // Animate main card
-  const mainCard = document.getElementById('pb-card-header')?.closest('.card');
-  if (mainCard) { mainCard.classList.remove('pb-anim'); void mainCard.offsetWidth; mainCard.classList.add('pb-anim'); }
-
-  // Card header
-  const hdr = document.getElementById('pb-card-header');
-  if (hdr) {
-    hdr.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;width:100%">
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:${pm.bg};color:${pm.color}">Phase ${st.p}: ${pm.name}</span>
-        <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:${tc.bg};color:${tc.col}">${typeLabels[st.type]||'Schritt'}</span>
-        ${st.type==='success'?`<span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:var(--green-light);color:var(--green)">✓ Gewonnen</span>`:''}
-        ${st.type==='info'&&pbCur==='hard_no'?`<span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:var(--red-light);color:var(--red)">✗ Nicht gewonnen</span>`:''}
-      </div>
-      <div style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;color:var(--navy)">${st.title}</div>
-    </div>`;
-  }
-
-  // Card body
-  const body = document.getElementById('pb-card-body');
-  if (body) {
-    let html = '';
-    
-    // CHECKLISTE 17.2: Vor dem Anruf (nur im Start-State)
-    if (pbCur === 'start' && pbContactId) {
-      const contact = DB.contacts.find(c => c.id === pbContactId);
-      html += `
-        <div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:10px;padding:16px;margin-bottom:16px">
-          <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em">📋 Checkliste: Vor dem Anruf</div>
-          ${QUICK_REF_DATA.preCall.checklist.map(item => {
-            const isChecked = item.field && contact ? item.field(contact) : false;
-            return `
-              <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-                <input type="checkbox" id="pb-pre-${item.id}" ${isChecked?'checked':''} 
-                  style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
-                <label for="pb-pre-${item.id}" style="flex:1;font-size:13px;color:var(--navy);cursor:pointer">
-                  ${item.label}
-                  ${isChecked ? '<span style="margin-left:6px;color:var(--green);font-size:11px;font-weight:600">✓</span>' : ''}
-                </label>
-              </div>
-            `;
-          }).join('')}
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(21,101,192,0.2);font-size:11px;color:var(--accent)">
-            💡 Diese Checkliste hilft dir, optimal vorbereitet in das Gespräch zu starten.
+        ${lnEvents.length ? `
+        <div style="margin-top:18px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Live-Protokoll</div>
+          <div style="border:1px solid var(--border);border-radius:9px;overflow:hidden">
+            ${lnEvents.map((e, i) => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:13px">
+              <span style="font-family:monospace;font-size:11px;color:var(--text3);flex-shrink:0">${esc(e.time)}</span>
+              <span style="flex:1">${esc(e.label)}</span>
+              <button class="btn-icon btn-sm" title="Entfernen" style="color:var(--red)" onclick="lnRemoveEvent(${i})">✕</button>
+            </div>`).join('')}
           </div>
+        </div>` : ''}
+
+        <div style="margin-top:18px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Notizen zum Gespräch</label>
+          <textarea id="ln-notes" rows="4" placeholder="Frei mittippen – wird mit dem Protokoll in der Akte gespeichert…"
+            style="width:100%;padding:10px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;outline:none;resize:vertical">${esc(window._lnNotesDraft || '')}</textarea>
         </div>
-      `;
-    } else if (pbCur === 'start' && !pbContactId) {
-      html += `
-        <div style="background:var(--orange-light);border:1px solid var(--orange);border-radius:10px;padding:14px;margin-bottom:16px">
-          <div style="font-size:13px;color:var(--orange);font-weight:600">⚠️ Bitte wähle oben einen Kontakt aus</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:6px">Die Vor-Anruf-Checkliste wird angezeigt, sobald du einen Kontakt ausgewählt hast.</div>
+      </div>
+    </div>
+
+    <!-- Schritt 3: Ergebnis & Speichern -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🏁 Ergebnis</div></div>
+      <div class="card-body">
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${LN_RESULTS.map(r => `<button class="btn ${lnResult === r.k ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="lnSetResult('${r.k}')">${r.icon} ${esc(r.label)}</button>`).join('')}
         </div>
-      `;
-    }
-    
-    if (st.ctx) html += `<p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:${st.script||st.tech||(st.tips&&st.tips.length)?'14px':'0'}">${st.ctx}</p>`;
-    
-    // Quick Reference Button bei Einwänden
-    if (st.type === 'objection') {
-      const objIdx = QUICK_REF_DATA.objections.findIndex(obj => obj.id === pbCur);
-      if (objIdx >= 0) {
-        html += `
-          <div style="background:var(--purple-light);border:1px solid var(--purple);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-            <span style="font-size:13px;color:var(--purple);flex:1">⚡ Direkt zur Quick Reference für diesen Einwand springen?</span>
-            <button class="btn btn-sm" onclick="pbJumpToQuickRef(${objIdx})" style="background:var(--purple);color:white;border:none;padding:6px 12px;font-size:12px;white-space:nowrap">
-              → Quick Reference
-            </button>
-          </div>
-        `;
-      }
-    }
-    
-    if (st.script) html += `<div style="background:var(--bg);border-left:3px solid ${pm.color};border-radius:0 7px 7px 0;padding:12px 15px;font-size:12.5px;color:var(--text);line-height:1.9;margin-bottom:${st.tech||(st.tips&&st.tips.length)?'12px':'0'};white-space:pre-line">${esc(st.script)}</div>`;
-    if (st.tech) html += `<p style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:${(st.tips&&st.tips.length)?'10px':'0'}"><strong style="color:var(--text2);font-style:normal">Technik:</strong> ${esc(st.tech)}</p>`;
-    if (st.tips && st.tips.length) html += `<ul style="padding:0;margin:0;display:flex;flex-direction:column;gap:5px">${st.tips.map(t=>`<li style="list-style:none;font-size:12px;color:var(--text2);line-height:1.65;padding-left:14px;position:relative"><span style="position:absolute;left:0;color:var(--accent);font-weight:700">›</span>${esc(t)}</li>`).join('')}</ul>`;
-    body.innerHTML = html;
-  }
+        <div id="ln-due-wrap" style="margin-top:14px;${lnResultDef()?.due ? '' : 'display:none'}">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px"><span id="ln-due-label">${esc(lnResultDef()?.due || 'Wiedervorlage am')}</span> – legt automatisch eine Wiedervorlage an</label>
+          <input type="date" id="ln-due" value="${lnDueDefault()}" style="padding:8px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;outline:none">
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="lnSave()">💾 In Kundenakte speichern</button>
+          <button class="btn btn-secondary" onclick="pbReset()">↺ Verwerfen / Neu</button>
+        </div>
+      </div>
+    </div>` : ''}
+  </div>`;
 
-  // Options
-  const optsEl = document.getElementById('pb-opts');
-  if (optsEl) {
-    if (st.opts && st.opts.length) {
-      const colorMap = {
-        g: ['var(--green-light)','var(--green)'],
-        a: ['var(--orange-light)','var(--orange)'],
-        x: ['var(--red-light)','var(--red)'],
-        t: ['var(--accent-light)','var(--accent)']
-      };
-      const sorted = [
-        ...st.opts.filter(o=>o.l.startsWith('→')||o.l.startsWith('✓')),
-        ...st.opts.filter(o=>o.l.startsWith('⚠')),
-        ...st.opts.filter(o=>o.l.startsWith('✗'))
-      ];
-      optsEl.innerHTML = sorted.map((o, i) => {
-        const [bg, col] = colorMap[o.c||'t'] || colorMap.t;
-        return `<button
-          class="pb-opt-btn pb-anim"
-          style="--pb-opt-color:${col};animation-delay:${i*0.04}s"
-          onclick="pbNav('${o.n}')">
-          <span class="pb-opt-dot"></span>
-          <span style="flex:1">${o.l}</span>
-          <span class="pb-opt-arrow">›</span>
-        </button>`;
-      }).join('');
-    } else {
-      optsEl.innerHTML = '';
-    }
+  // Typeahead mit gewähltem Kontakt vorbelegen
+  if (lnContactId) {
+    setTimeout(() => { try { csSetValue('ln-contact-search', 'ln-contact-hidden', lnContactId); } catch(e) {} }, 0);
   }
-
-  // Terminal state → show save panel
-  if (PB_TERMINALS.has(pbCur)) {
-    showPbSavePanel(pbCur === 'close' ? 'positive' : 'negative');
-  }
-
-  const bk = document.getElementById('pb-back');
-  if (bk) bk.disabled = pbHist.length === 0;
-  const step = document.getElementById('pb-step');
-  if (step) step.textContent = `Schritt ${pbHist.length + 1}`;
+  if (started) lnStartTimerDisplay();
 }
 
-function showPbSavePanel(outcome) {
-  const panel = document.getElementById('pb-save-panel');
-  if (!panel) return;
-  const isPositive = outcome === 'positive';
-  const c = pbContactId ? DB.contacts.find(x => x.id === pbContactId) : null;
-  const contactName = c ? esc(`${c.company} – ${c.firstname} ${c.lastname}`) : null;
-  const duration = pbStartTime ? Math.round((new Date() - pbStartTime) / 60000) : 0;
-
-  panel.style.display = 'block';
-  panel.innerHTML = `
-  <div class="card" style="border:2px solid ${isPositive?'var(--green)':'var(--orange)'};margin-top:4px">
-    <div class="card-header" style="background:${isPositive?'var(--green-light)':'var(--orange-light)'}">
-      <div class="card-title" style="color:${isPositive?'var(--green)':'var(--orange)'}">
-        ${isPositive?'🎉 Abschluss – Protokoll im CRM speichern':'📋 Gesprächsprotokoll im CRM speichern'}
-      </div>
-    </div>
-    <div class="card-body">
-      ${!contactName ? `<div style="background:var(--orange-light);border-radius:7px;padding:10px 14px;font-size:12.5px;color:var(--orange);margin-bottom:14px;border-left:3px solid var(--orange)">
-        ⚠️ Kein Kontakt ausgewählt – bitte oben einen Kontakt wählen, damit das Protokoll korrekt gespeichert wird.
-      </div>` : ''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        ${pbSaveContactField()}
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Gesprächsart</label>
-          <select id="pb-save-type" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="call" selected>📞 Anruf</option>
-            <option value="visit">🤝 Besuch / Termin</option>
-            <option value="note">📝 Notiz</option>
-            <option value="email">📧 E-Mail</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Bearbeiter</label>
-          <select id="pb-save-user" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="">— Nicht zugewiesen —</option>
-            ${DB.users.filter(u=>u.active!==false).map(u=>`<option value="${u.id}"${u.id===pbUserId?' selected':''}>${esc(u.name)}${u.role?' – '+esc(u.role):''}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Betreff</label>
-          <input id="pb-save-subject" type="text" value="${isPositive?'Abschluss':'Leitfaden-Gesprächsprotokoll'} – ${contactName||'[Kontakt]'}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Dauer (Min.)</label>
-          <input id="pb-save-duration" type="number" value="${duration}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-        </div>
-      </div>
-      
-      <!-- CHECKLISTE 17.3: Nach dem Gespräch -->
-      <div style="background:var(--bg);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">✅ Checkliste: Nach dem Gespräch</div>
-        ${QUICK_REF_DATA.postCall.checklist.map(item => `
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <input type="checkbox" id="pb-post-${item.id}" 
-              style="width:16px;height:16px;cursor:pointer;accent-color:var(--green)">
-            <label for="pb-post-${item.id}" style="flex:1;font-size:12px;color:var(--text2);cursor:pointer">
-              ${item.label}
-            </label>
-          </div>
-        `).join('')}
-        <div style="margin-top:8px;font-size:10px;color:var(--text3)">
-          💡 Markierte Items werden automatisch in die Notizen übernommen
-        </div>
-      </div>
-      
-      <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Details / Notizen</label>
-        <textarea id="pb-save-details" rows="4" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none;resize:vertical">${pbBuildNotes(isPositive)}</textarea>
-      </div>
-      ${isPositive ? '' : `
-      <div style="background:var(--bg);border-radius:7px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border)">
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:8px">Follow-up Aufgabe anlegen</label>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
-          <input id="pb-followup-text" type="text" placeholder="z.B. Nachfassen in 2 Wochen" value="${isPositive?'Onboarding planen':'Nachfassen / Reaktivierung'}" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none">
-          <input id="pb-followup-days" type="number" value="14" min="1" max="365" style="width:70px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none" title="Tage bis Fälligkeit">
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:5px">Aufgabe wird automatisch dem gewählten Kontakt zugewiesen · Fälligkeit: in [X] Tagen</div>
-      </div>`}
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pb-save-panel').style.display='none'">Überspringen</button>
-        <button class="btn btn-primary" onclick="pbSaveToContact(${isPositive})" style="background:${isPositive?'var(--green)':'var(--accent)'}">
-          ${isPositive ? '✓ Abschluss im CRM speichern' : '💾 Protokoll speichern'}
-        </button>
-      </div>
-    </div>
+function lnContactInfoHtml(c) {
+  return `<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--accent-light);border:1px solid var(--accent);border-radius:9px;padding:10px 14px;font-size:13px">
+    <strong style="cursor:pointer;color:var(--accent)" title="Kontaktakte öffnen" onclick="showAkte('${esc(c.id)}')">${esc(c.company)}</strong>
+    ${c.firstname || c.lastname ? `<span>👤 ${esc([c.firstname, c.lastname].filter(Boolean).join(' '))}</span>` : ''}
+    ${c.phone ? `<a href="tel:${esc(c.phone)}" style="font-weight:700;color:var(--navy);text-decoration:none;font-size:15px">📞 ${esc(c.phone)}</a>` : '<span style="color:var(--orange)">⚠ Keine Telefonnummer hinterlegt</span>'}
+    ${c.city ? `<span style="color:var(--text3)">📍 ${esc(c.city)}</span>` : ''}
+    ${c.contactResult && typeof crBadgeHtml === 'function' ? crBadgeHtml(c.contactResult) : ''}
   </div>`;
 }
 
-function pbBuildNotes(isPositive) {
-  const path = pbSessionLog.map((s,i) => `${i+1}. ${s.phase}: ${s.title}`).join('\n');
-  const outcome = isPositive ? 'ABSCHLUSS – Vertrag unterzeichnet' : 'KEIN ABSCHLUSS – ' + (pbCur==='hard_no' ? 'Klares Nein' : PB_STATES[pbCur]?.title || pbCur);
-  const dur = pbStartTime ? Math.round((new Date()-pbStartTime)/60000) : 0;
-  const u = pbUserId ? DB.users.find(x => x.id === pbUserId) : null;
-  const bearbeiter = u ? u.name + (u.role ? ' (' + u.role + ')' : '') : '—';
-  const liveNotes = document.getElementById('pb-live-notes')?.value?.trim() || '';
-  const openQ = pbQuestions.filter(x => !x.answered);
-  const doneQ = pbQuestions.filter(x => x.answered);
-  
-  // Pre-Call Checkliste (falls vorhanden)
-  const preCallItems = QUICK_REF_DATA.preCall.checklist
-    .filter(item => document.getElementById(`pb-pre-${item.id}`)?.checked)
-    .map(item => `✓ ${item.label}`)
-    .join('\n');
-  
-  // Post-Call Checkliste
-  const postCallItems = QUICK_REF_DATA.postCall.checklist
-    .filter(item => document.getElementById(`pb-post-${item.id}`)?.checked)
-    .map(item => `✓ ${item.label}`)
-    .join('\n');
-  
-  let qSection = '';
-  if (pbQuestions.length) {
-    if (openQ.length) qSection += `\nNoch offene Kundenfragen:\n${openQ.map((q,i)=>`  ${i+1}. ❓ ${q.text}${q.phase?' ['+q.phase+']':''}`).join('\n')}`;
-    if (doneQ.length) qSection += `\nBeantwortete Kundenfragen:\n${doneQ.map((q,i)=>`  ${i+1}. ✓ ${q.text}`).join('\n')}`;
-  }
-  
-  let notes = `Ergebnis: ${outcome}\nBearbeiter: ${bearbeiter}\nGesprächsdauer: ca. ${dur} Min.\n\n`;
-  
-  if (preCallItems) {
-    notes += `📞 VOR DEM ANRUF – Vorbereitung:\n${preCallItems}\n\n`;
-  }
-  
-  notes += `Gesprächsverlauf (Vertriebsleitfaden):\n${path}${qSection}\n\n`;
-  
-  if (postCallItems) {
-    notes += `✅ NACH DEM GESPRÄCH – Dokumentation:\n${postCallItems}\n\n`;
-  }
-  
-  if (liveNotes) {
-    notes += `Notizen:\n${liveNotes}`;
-  }
-  
-  return notes;
+function lnSetContact(id) {
+  lnContactId = id || '';
+  const info = document.getElementById('ln-contact-info');
+  const c = lnContactId ? DB.contacts.find(x => x.id === lnContactId) : null;
+  if (info) info.innerHTML = c ? lnContactInfoHtml(c) : '';
+  if (!lnStartTime) renderPlaybook();
 }
 
-// Kontakt-Feld im Speichern-Panel: ein bereits im Leitfaden gewählter
-// Kontakt wird nur noch bestätigt (mit Telefonnummer) statt erneut
-// abgefragt. Über "ändern" lässt sich das Dropdown einblenden.
-function pbSaveContactSelect() {
-  return `<select id="pb-save-contact" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-    <option value="">— Kein Kontakt —</option>
-    ${DB.contacts.map(x=>`<option value="${x.id}"${x.id===pbContactId?' selected':''}>${esc(x.company)} – ${esc([x.firstname, x.lastname].filter(Boolean).join(' ') || '–')}</option>`).join('')}
-  </select>`;
+function lnStart() {
+  if (!lnContactId) { toast('Bitte zuerst einen Kontakt wählen', 'error'); return; }
+  lnUserId = document.getElementById('ln-user-sel')?.value || lnUserId || getCurrentDbUserId() || '';
+  lnStartTime = new Date();
+  lnEvents = [];
+  lnWho = '';
+  lnResult = '';
+  window._lnNotesDraft = '';
+  renderPlaybook();
 }
 
-function pbSaveContactField() {
-  const label = '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>';
-  const c = pbContactId ? DB.contacts.find(x => x.id === pbContactId) : null;
-  if (c) {
-    return `<div id="pb-save-contact-wrap">
-      ${label}
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--green);border-radius:7px;font-size:13px;background:var(--green-light);color:var(--navy)">
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✓ ${esc(c.company)}${c.phone ? ' · 📞 ' + esc(c.phone) : ''}</span>
-        <a href="#" onclick="event.preventDefault();pbSaveContactChange()" style="font-size:11px;color:var(--accent);flex-shrink:0">ändern</a>
-      </div>
-      <input type="hidden" id="pb-save-contact" value="${esc(c.id)}">
-    </div>`;
-  }
-  return `<div id="pb-save-contact-wrap">${label}${pbSaveContactSelect()}</div>`;
+function lnStartTimerDisplay() {
+  clearInterval(lnTimerInt);
+  const tick = () => {
+    const el = document.getElementById('ln-timer');
+    if (!el || !lnStartTime) return;
+    const s = Math.floor((Date.now() - lnStartTime.getTime()) / 1000);
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  };
+  tick();
+  lnTimerInt = setInterval(tick, 1000);
 }
 
-function pbSaveContactChange() {
-  const wrap = document.getElementById('pb-save-contact-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Kontakt</label>' + pbSaveContactSelect();
+function _lnKeepNotes() {
+  window._lnNotesDraft = document.getElementById('ln-notes')?.value || window._lnNotesDraft || '';
 }
 
-function pbSaveToContact(isPositive) {
-  const contactId = document.getElementById('pb-save-contact')?.value || pbContactId;
-  const subject = document.getElementById('pb-save-subject')?.value?.trim() || (isPositive ? 'Abschluss' : 'Gesprächsprotokoll');
-  const details = document.getElementById('pb-save-details')?.value || '';
-  const duration = parseInt(document.getElementById('pb-save-duration')?.value) || 0;
-  const type = document.getElementById('pb-save-type')?.value || 'call';
-  const userId = document.getElementById('pb-save-user')?.value || pbUserId || '';
+function lnSetWho(k) {
+  _lnKeepNotes();
+  const def = LN_WHO.find(w => w.k === k);
+  if (lnWho !== k && def) lnLogEventSilent(def.icon + ' ' + def.label);
+  lnWho = k;
+  renderPlaybook();
+}
 
-  // ══════════════════════════════════════════════════════════════
-  // PHASE 4: VALIDIERUNG
-  // ══════════════════════════════════════════════════════════════
-  
-  // Pflichtfeld: Kontakt (nur wenn wirklich keiner gesetzt ist)
-  if (!contactId && !pbContactId) {
-    toast('⚠️ Bitte wähle einen Kontakt aus', 'warning');
-    return;
-  }
-  
-  // Betreff-Validierung nur wenn Feld leer ist (Fallback existiert)
-  const actualSubject = subject || (isPositive ? 'Abschluss' : 'Gesprächsprotokoll');
-  
-  // Warnung: Keine Details (nur wenn wirklich leer)
-  if (!details.trim() && details !== pbBuildNotes(isPositive)) {
-    const proceed = confirm('⚠️ Keine Details erfasst. Trotzdem speichern?');
-    if (!proceed) return;
-  }
-  
-  // Loading State
-  const saveBtn = event?.target;
-  if (saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '⏳ Speichere...';
-  }
-  
-  try {
+function _lnNow() {
+  return new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
 
-  // Save activity – userId verknüpft die Aktivität mit dem Bearbeiter
-  const act = {
+function lnLogEventSilent(label) {
+  lnEvents.push({ time: _lnNow(), label });
+}
+
+function lnLogEvent(label) {
+  _lnKeepNotes();
+  lnLogEventSilent(label);
+  renderPlaybook();
+}
+
+function lnLogCustomEvent() {
+  const input = document.getElementById('ln-custom-event');
+  const v = (input?.value || '').trim();
+  if (!v) return;
+  lnLogEvent(v);
+}
+
+function lnRemoveEvent(i) {
+  _lnKeepNotes();
+  lnEvents.splice(i, 1);
+  renderPlaybook();
+}
+
+function lnResultDef() {
+  return LN_RESULTS.find(r => r.k === lnResult) || null;
+}
+
+function lnDueDefault() {
+  const def = lnResultDef();
+  if (!def || !def.due) return '';
+  const cur = document.getElementById('ln-due')?.value;
+  if (cur) return cur;
+  return def.dueDefault ? fmtDate(def.dueDefault) : '';
+}
+
+function lnSetResult(k) {
+  _lnKeepNotes();
+  lnResult = k;
+  renderPlaybook();
+}
+
+function lnSave() {
+  const c = DB.contacts.find(x => x.id === lnContactId);
+  if (!c) { toast('Bitte einen Kontakt wählen', 'error'); return; }
+  const def = lnResultDef();
+  if (!def) { toast('Bitte ein Ergebnis wählen', 'error'); return; }
+
+  _lnKeepNotes();
+  const notes    = window._lnNotesDraft || '';
+  const duration = lnStartTime ? Math.max(1, Math.round((Date.now() - lnStartTime.getTime()) / 60000)) : 0;
+  const due      = def.due ? (document.getElementById('ln-due')?.value || '') : '';
+
+  let details = '';
+  if (lnEvents.length) {
+    details += 'Gesprächsverlauf:\n' + lnEvents.map(e => e.time + ' – ' + e.label).join('\n') + '\n';
+  }
+  details += 'Ergebnis: ' + def.label + (due ? ' (' + formatDate(due) + ')' : '') + '\n';
+  if (notes.trim()) details += '\nNotizen:\n' + notes.trim();
+
+  // 1) Aktivität in die Akte
+  DB.activities.push({
     id: uid(),
-    type,
-    contactId,
-    userId,
+    type: 'call',
+    contactId: c.id,
+    userId: lnUserId || getCurrentDbUserId() || '',
     date: fmtDate(0),
-    subject,
+    subject: 'Leadnotiz – ' + def.label,
     details,
     duration,
     created: new Date().toISOString()
-  };
-  DB.activities.push(act);
+  });
 
-  // Update contact record + Gesprächsnotiz in Vertriebsnotizen speichern
-  if (contactId) {
-    const ci = DB.contacts.findIndex(c => c.id === contactId);
-    if (ci >= 0) {
-      DB.contacts[ci].lastContact = fmtDate(0);
-      if (isPositive && DB.contacts[ci].status !== 'Kunde') {
-        DB.contacts[ci].status = 'Kunde';
-      }
-      // Gesprächsnotizen an bestehende Vertriebsnotizen anhängen
-      if (details && details.trim()) {
-        const existing = DB.contacts[ci].salesNotes || '';
-        const timestamp = new Date().toLocaleDateString('de-DE') + ' – ';
-        const separator = existing ? '\n\n──────────────\n' : '';
-        DB.contacts[ci].salesNotes = existing + separator + timestamp + details.trim();
-      }
-    }
-  }
+  // 2) Kontakt-Ergebnis-Badge setzen
+  c.contactResult = def.cr;
 
-  // Follow-up task – dem Bearbeiter zuweisen, als Wiedervorlage markieren
-  const followupText = document.getElementById('pb-followup-text')?.value?.trim();
-  const followupDays = parseInt(document.getElementById('pb-followup-days')?.value) || 14;
-  if (followupText) {
-    const task = {
+  // 3) Automatische Wiedervorlage
+  if (def.task && due) {
+    DB.tasks.push({
       id: uid(),
-      title: followupText,
-      contactId,
-      assignedTo: userId,
-      priority: isPositive ? 'high' : 'medium',
-      due: fmtDate(followupDays),
+      title: def.task + ' – ' + c.company,
+      contactId: c.id,
+      assignedTo: lnUserId || getCurrentDbUserId() || '',
+      due,
+      priority: 'medium',
       category: 'Nachfassen',
-      notes: `Automatisch aus Vertriebsleitfaden erstellt. Ergebnis: ${isPositive ? 'Abschluss' : 'Kein Abschluss'}.`,
+      isWiedervorlage: true,
+      notes: 'Aus Leadnotiz: ' + def.label,
       done: false,
-      isWiedervorlage: true,   // ← Wiedervorlage, nicht Aufgabe
       created: new Date().toISOString()
-    };
-    DB.tasks.push(task);
+    });
   }
 
   save();
-  updateTaskBadge();
-
-  const u = userId ? DB.users.find(x => x.id === userId) : null;
-  const panel = document.getElementById('pb-save-panel');
-  if (panel) {
-    panel.innerHTML = `<div style="background:var(--green-light);border-radius:10px;padding:16px 20px;border:1px solid var(--green);display:flex;align-items:center;gap:12px">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" style="color:var(--green);flex-shrink:0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke-width="2"/><polyline points="22 4 12 14.01 9 11.01" stroke-width="2"/></svg>
-      <div>
-        <div style="font-size:13.5px;font-weight:600;color:var(--green)">Im CRM gespeichert</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:3px">
-          Aktivität${followupText ? ' + Follow-up-Aufgabe' : ''} gespeichert${u ? ` · Bearbeiter: <strong>${esc(u.name)}</strong>` : ''}.
-          ${contactId ? `<a href="#" onclick="showPage('contacts');event.preventDefault()" style="color:var(--accent);margin-left:6px">→ Zu den Kontakten</a>` : ''}
-        </div>
-      </div>
-    </div>`;
-  }
-
-  toast(isPositive ? '🎉 Abschluss und Aktivität gespeichert!' : '💾 Protokoll gespeichert', 'success');
-  
-  // ══════════════════════════════════════════════════════════════
-  // PHASE 4: SUCCESS HANDLING
-  // ══════════════════════════════════════════════════════════════
-  } catch (error) {
-    console.error('Fehler beim Speichern:', error);
-    toast('❌ Fehler beim Speichern: ' + error.message, 'error');
-  } finally {
-    // Button wieder aktivieren
-    if (saveBtn) {
-      saveBtn.disabled = false;
-      saveBtn.innerHTML = isPositive ? '✓ Abschluss im CRM speichern' : '💾 Protokoll speichern';
-    }
-  }
+  clearInterval(lnTimerInt);
+  const savedContactId = c.id;
+  lnStartTime = null; lnEvents = []; lnWho = ''; lnResult = ''; window._lnNotesDraft = '';
+  if (typeof updateTaskBadge === 'function') updateTaskBadge();
+  if (typeof wvUpdateBadge === 'function') { try { wvUpdateBadge(); } catch(e) {} }
+  toast('Leadnotiz gespeichert' + (def.task && due ? ' + Wiedervorlage angelegt' : ''), 'success');
+  showAkte(savedContactId);
 }
 
-function pbSaveTrigger(saveKey) {
-  const meta = PB_SAVE_META[saveKey];
-  if (!meta) return;
-  const panel = document.getElementById('pb-save-panel');
-  if (!panel) return;
-  const c = pbContactId ? DB.contacts.find(x => x.id === pbContactId) : null;
-  const duration = pbStartTime ? Math.round((new Date() - pbStartTime) / 60000) : 0;
-  panel.style.display = 'block';
-  panel.innerHTML = `
-  <div class="card" style="border:2px solid var(--accent);margin-top:4px">
-    <div class="card-header" style="background:var(--accent-light)">
-      <div class="card-title" style="color:var(--accent)">📋 Protokoll speichern – ${meta.label}</div>
-    </div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-        ${pbSaveContactField()}
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Bearbeiter</label>
-          <select id="pb-save-user" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="">— Nicht zugewiesen —</option>
-            ${DB.users.filter(u=>u.active!==false).map(u=>`<option value="${u.id}"${u.id===pbUserId?' selected':''}>${esc(u.name)}${u.role?' – '+esc(u.role):''}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Betreff</label>
-          <input id="pb-save-subject" type="text" value="${meta.label} – ${c?esc(c.company):'[Kontakt]'}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Typ</label>
-          <select id="pb-save-type" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-            <option value="call" selected>📞 Anruf</option>
-            <option value="visit">🤝 Besuch / Termin</option>
-            <option value="note">📝 Notiz</option>
-            <option value="email">📧 E-Mail</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1">
-          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Dauer (Min.)</label>
-          <input id="pb-save-duration" type="number" value="${duration}" style="width:120px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--card);outline:none">
-        </div>
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:5px">Details / Notizen</label>
-        <textarea id="pb-save-details" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none;resize:vertical">${pbBuildNotes(false)}</textarea>
-      </div>
-      <div style="background:var(--bg);border-radius:7px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border)">
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:block;margin-bottom:8px">📅 Wiedervorlage anlegen</label>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
-          <input id="pb-followup-text" type="text" value="${meta.followupText}" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none">
-          <input id="pb-followup-days" type="number" value="${meta.followupDays}" min="1" max="365" style="width:70px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--text);background:var(--card);outline:none" title="Tage bis Fälligkeit">
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:5px">Fälligkeit: in [X] Tagen · Leer lassen um keine Aufgabe anzulegen</div>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('pb-save-panel').style.display='none';pbReset()">Überspringen & Neustart</button>
-        <button class="btn btn-primary" onclick="pbSaveToContact(false)">💾 Protokoll speichern</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function pbNav(targetId) {
-  // Handle save-trigger virtual states
-  if (PB_SAVE_TRIGGERS.has(targetId)) {
-    pbSaveTrigger(targetId);
-    return;
-  }
-  if (!PB_STATES[targetId]) return;
-  pbHist.push(pbCur);
-  pbCur = targetId;
-  renderPbState();
-}
-function pbBack() {
-  if (!pbHist.length) return;
-  pbCur = pbHist.pop();
-  const panel = document.getElementById('pb-save-panel');
-  if (panel) panel.style.display = 'none';
-  renderPbState();
-}
-function pbGoTo(idx) {
-  pbCur = pbHist[idx];
-  pbHist = pbHist.slice(0, idx);
-  const panel = document.getElementById('pb-save-panel');
-  if (panel) panel.style.display = 'none';
-  renderPbState();
-}
-function pbJump(id) {
-  if (!id || !PB_STATES[id]) return;
-  pbHist.push(pbCur);
-  pbCur = id;
-  renderPbState();
-}
-
-// ── GESTELLTE FRAGEN ─────────────────────────────────────────
-function pbAddQuestion(status) {
-  const inp = document.getElementById('pb-q-input');
-  if (!inp) return;
-  const text = inp.value.trim();
-  if (!text) { inp.focus(); return; }
-  const curPhase = PB_STATES[pbCur]?.p ? PB_PHASES[PB_STATES[pbCur].p]?.name : '';
-  const q = {
-    id: Date.now(),
-    text,
-    phase: curPhase,
-    answered: status === 'answered'
-  };
-  pbQuestions.push(q);
-  inp.value = '';
-  inp.focus();
-  renderPbQuestions();
-}
-
-function pbToggleQuestion(id) {
-  const q = pbQuestions.find(x => x.id === id);
-  if (q) { q.answered = !q.answered; renderPbQuestions(); }
-}
-
-function pbRemoveQuestion(id) {
-  pbQuestions = pbQuestions.filter(x => x.id !== id);
-  renderPbQuestions();
-}
-
-function renderPbQuestions() {
-  const el = document.getElementById('pb-questions-list');
-  const statsEl = document.getElementById('pb-q-stats');
-  if (!el) return;
-  if (!pbQuestions.length) {
-    el.innerHTML = '<div style="font-size:11.5px;color:var(--text3);padding:6px 0;text-align:center">Noch keine Fragen erfasst</div>';
-    if (statsEl) statsEl.style.display = 'none';
-    return;
-  }
-  el.innerHTML = pbQuestions.map(q => `
-    <div class="pb-question-item ${q.answered ? 'answered' : 'unanswered'}">
-      <div style="flex:1">
-        <span style="line-height:1.4">${esc(q.text)}</span>
-        ${q.phase ? `<span class="pb-q-phase">📍 ${esc(q.phase)}</span>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-        <button onclick="pbToggleQuestion(${q.id})" title="${q.answered?'Als offen markieren':'Als beantwortet markieren'}"
-          style="background:none;border:none;cursor:pointer;font-size:14px;padding:0;line-height:1">
-          ${q.answered ? '✅' : '❓'}
-        </button>
-        <button onclick="pbRemoveQuestion(${q.id})" title="Entfernen"
-          style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text3);padding:0;line-height:1">✕</button>
-      </div>
-    </div>`).join('');
-  const open = pbQuestions.filter(x => !x.answered).length;
-  const done = pbQuestions.filter(x => x.answered).length;
-  if (statsEl) {
-    statsEl.style.display = 'block';
-    statsEl.innerHTML = `<span style="color:var(--orange);font-weight:600">⚠ ${open} offen</span>&nbsp;&nbsp;<span style="color:var(--green);font-weight:600">✓ ${done} beantwortet</span>`;
-  }
-}
-
-// ── STÄRKEN KOPIEREN ─────────────────────────────────────────
-function pbCopyStrength(idx) {
-  const s = PB_STRENGTHS[idx];
-  if (!s) return;
-  const text = `${s.title}\n${s.text}`;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).catch(() => pbCopyFallback(text));
-  } else {
-    pbCopyFallback(text);
-  }
-  const el = document.getElementById(`str-${idx}`);
-  if (el) {
-    el.classList.add('copied');
-    el.querySelector('span:last-child').textContent = '✓ Kopiert!';
-    setTimeout(() => {
-      el.classList.remove('copied');
-      el.querySelector('span:last-child').textContent = s.tag;
-    }, 1800);
-  }
-}
-function pbCopyFallback(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.select();
-  document.execCommand('copy'); document.body.removeChild(ta);
-}
-
-// ── SEKTION AUFKLAPPEN/ZUKLAPPEN ─────────────────────────────
-function pbToggleSection(id) {
-  const el = document.getElementById(id);
-  const arrow = document.getElementById(id + '-arrow');
-  if (!el) return;
-  const isOpen = el.style.display !== 'none';
-  el.style.display = isOpen ? 'none' : '';
-  if (arrow) arrow.style.transform = isOpen ? 'rotate(-90deg)' : '';
-}
-
-// ── NOTIZ-COUNTER & INTEGRATION IN PROTOKOLL ─────────────────
-function pbInitNotesCounter() {
-  const ta = document.getElementById('pb-live-notes');
-  const counter = document.getElementById('pb-notes-counter');
-  if (!ta || !counter) return;
-  ta.addEventListener('input', () => {
-    counter.textContent = ta.value.length + ' Zeichen';
-  });
-}
-// Called after shell renders
-setTimeout(pbInitNotesCounter, 100);
-
-// Allow opening playbook pre-loaded with a contact (from contact row)
+// Leadnotiz direkt aus einer Kontaktzeile / der Akte starten
 function openPlaybookForContact(contactId) {
+  lnContactId = contactId || '';
+  lnStartTime = null;
+  lnEvents = []; lnWho = ''; lnResult = '';
   showPage('playbook');
-  setTimeout(() => {
-    csSetValue('pb-contact-search', 'pb-contact-hidden', contactId);
-    const hiddenSel = document.getElementById('pb-contact-sel');
-    if (hiddenSel) hiddenSel.value = contactId;
-    pbSetContact(contactId);
-    pbContactId = contactId;
-    const uSel = document.getElementById('pb-user-sel');
-    if (uSel && pbUserId) uSel.value = pbUserId;
-    pbReset();
-  }, 50);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -9965,7 +8691,7 @@ function showAkte(contactId) {
     <button class="btn btn-secondary btn-sm no-print" onclick="openContactModal('${contactId}')">✏️ Bearbeiten</button>
     <button class="btn btn-secondary btn-sm no-print" onclick="openActivityModalFor('${contactId}')">+ Aktivität</button>
     <button class="btn btn-secondary btn-sm no-print" onclick="openTaskModalFor('${contactId}')">+ Aufgabe</button>
-    <button class="btn btn-primary btn-sm no-print" onclick="openPlaybookForContact('${contactId}')">▶ Leitfaden</button>
+    <button class="btn btn-primary btn-sm no-print" onclick="openPlaybookForContact('${contactId}')">▶ Leadnotiz</button>
   `;
   renderAkte();
 }
@@ -10914,7 +9640,7 @@ function openDrilldown(title, contactIds, sub) {
         + '<div style="margin-top:8px;display:flex;gap:6px">'
         + '<button onclick="event.stopPropagation();closeDrilldown();openActivityModalFor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #DDE3EA;background:#F8FAFC;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#5A6B7B">+ Aktivität</button>'
         + '<button onclick="event.stopPropagation();closeDrilldown();openTaskModalFor(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #DDE3EA;background:#F8FAFC;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#5A6B7B">+ Aufgabe</button>'
-        + '<button onclick="event.stopPropagation();closeDrilldown();openPlaybookForContact(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #1565C0;background:#E3F0FF;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#1565C0;font-weight:600">▶ Leitfaden</button>'
+        + '<button onclick="event.stopPropagation();closeDrilldown();openPlaybookForContact(\'' + c.id + '\')" style="flex:1;padding:6px;border:1px solid #1565C0;background:#E3F0FF;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;color:#1565C0;font-weight:600">▶ Leadnotiz</button>'
         + '</div></div>';
     }).join('');
   }
