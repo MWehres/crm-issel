@@ -5140,6 +5140,66 @@ async function _fbMigrateLegacy() {
   }
 }
 
+// ── REPARATUR: verwaiste Bearbeiter-Referenzen ────────────
+// Zeigen Aufgaben/Aktivitäten auf einen Team-Eintrag, den es nicht
+// mehr gibt (z. B. durch eine versehentliche Löschung), wird er aus
+// dem eingefrorenen Altbestand unter crm/ wiederhergestellt. Ebenso
+// werden dabei entleerte Aufgaben-Zuweisungen aus dem Backup
+// zurückgeholt. Läuft einmal pro Sitzung nach dem ersten Pull.
+let _userRepairDone = false;
+async function _repairDanglingUserRefs() {
+  if (_userRepairDone || !fbIsConfigured()) return;
+  _userRepairDone = true;
+  try {
+    const have = new Set(_dbCollection('users').map(u => u.id));
+    const refs = new Set();
+    _dbCollection('tasks').forEach(t => { if (t.assignedTo) refs.add(t.assignedTo); });
+    _dbCollection('activities').forEach(a => { if (a.userId) refs.add(a.userId); });
+    const missing = [...refs].filter(id => !have.has(id));
+    if (!missing.length) return;
+
+    const meta = await fbGetLegacy('crm/meta').catch(() => null);
+    const legacyUsers = Array.isArray(meta?.users) ? meta.users : [];
+    const restoredIds = new Set();
+    missing.forEach(id => {
+      const lu = legacyUsers.find(u => u && u.id === id);
+      if (!lu) return;
+      const rec = { ...lu };
+      delete rec.authId;      // Profil-Verknüpfung baut die Dedupe-Logik neu auf
+      delete rec.updatedAt;
+      DB.users.push(rec);
+      restoredIds.add(id);
+    });
+    if (!restoredIds.size) {
+      console.warn('[Repair] Verwaiste Bearbeiter-IDs ohne Backup-Treffer:', missing.join(', '));
+      return;
+    }
+
+    // Entleerte Zuweisungen zurückholen, wenn das Backup denselben
+    // Datensatz einem wiederhergestellten Eintrag zuordnete
+    const legacyTasks = new Map((Array.isArray(meta?.tasks) ? meta.tasks : []).map(t => [t.id, t]));
+    _dbCollection('tasks').forEach(t => {
+      if (t.assignedTo) return;
+      const lt = legacyTasks.get(t.id);
+      if (lt && lt.assignedTo && restoredIds.has(lt.assignedTo)) t.assignedTo = lt.assignedTo;
+    });
+    const legacyActs = new Map((Array.isArray(meta?.activities) ? meta.activities : []).map(a => [a.id, a]));
+    _dbCollection('activities').forEach(a => {
+      if (a.userId) return;
+      const la = legacyActs.get(a.id);
+      if (la && la.userId && restoredIds.has(la.userId)) a.userId = la.userId;
+    });
+
+    console.warn(`[Repair] ${restoredIds.size} Team-Eintrag/-Einträge aus Backup (crm/) wiederhergestellt`);
+    syncAuthUsersToCrmUsers(true);   // Profile verknüpfen, Duplikate mergen, speichern + pushen
+    if (typeof updateAllUserSelects === 'function') updateAllUserSelects();
+    _refreshActivePage();
+    toast(restoredIds.size + ' Team-Eintrag(e) aus Backup wiederhergestellt', 'success');
+  } catch(e) {
+    console.warn('[Repair] fehlgeschlagen:', e.message);
+  }
+}
+
 // ── ECHTZEIT-STREAM (EventSource auf crm2/meta) ───────────
 function _schedulePull() {
   clearTimeout(_fbPullTimer);
@@ -5224,6 +5284,7 @@ function syncAutoInit() {
   syncPull(true).then(() => {
     _fbStartStream();
     _updateModalConnectedState();
+    _repairDanglingUserRefs();
   });
 }
 
