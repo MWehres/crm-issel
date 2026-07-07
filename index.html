@@ -8405,11 +8405,11 @@ function renderPlaybook() {
             <div class="cs-wrap" style="position:relative">
               <input type="text" class="cs-input" id="ln-contact-search" placeholder="Kontakt suchen…" autocomplete="off"
                 style="width:100%;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;outline:none"
-                oninput="csFilter('ln-contact-search','ln-contact-dropdown','ln-contact-hidden');lnSetContact(document.getElementById('ln-contact-hidden').value)"
+                oninput="csFilter('ln-contact-search','ln-contact-dropdown','ln-contact-hidden')"
                 onfocus="csFilter('ln-contact-search','ln-contact-dropdown','ln-contact-hidden')"
                 onkeydown="csKeyNav(event,'ln-contact-dropdown','ln-contact-hidden','ln-contact-search',function(id){lnSetContact(id)})">
               <div class="cs-dropdown" id="ln-contact-dropdown"></div>
-              <input type="hidden" id="ln-contact-hidden" value="${esc(lnContactId)}">
+              <input type="hidden" id="ln-contact-hidden" value="${esc(lnContactId)}" onchange="lnSetContact(this.value)">
             </div>
           </div>
           <div>
@@ -8424,7 +8424,7 @@ function renderPlaybook() {
         <div style="margin-top:14px;display:flex;align-items:center;gap:14px">
           ${started
             ? `<span style="display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--green)"><span class="sync-dot pulse" style="background:var(--green)"></span> Anruf läuft · <span id="ln-timer">0:00</span></span>`
-            : `<button class="btn btn-primary" onclick="lnStart()" ${c ? '' : 'disabled title="Bitte zuerst Kontakt wählen"'}>▶ Anruf starten</button>`}
+            : `<button class="btn btn-primary" id="ln-start-btn" onclick="lnStart()" ${c ? '' : 'disabled title="Bitte zuerst Kontakt wählen"'}>▶ Anruf starten</button>`}
         </div>
       </div>
     </div>
@@ -8510,10 +8510,16 @@ function lnContactInfoHtml(c) {
 
 function lnSetContact(id) {
   lnContactId = id || '';
-  const info = document.getElementById('ln-contact-info');
   const c = lnContactId ? DB.contacts.find(x => x.id === lnContactId) : null;
+  // Gezielt aktualisieren statt neu zu rendern – sonst verliert das
+  // Suchfeld beim Tippen den Fokus und das Dropdown verschwindet.
+  const info = document.getElementById('ln-contact-info');
   if (info) info.innerHTML = c ? lnContactInfoHtml(c) : '';
-  if (!lnStartTime) renderPlaybook();
+  const btn = document.getElementById('ln-start-btn');
+  if (btn) {
+    btn.disabled = !c;
+    btn.title = c ? '' : 'Bitte zuerst Kontakt wählen';
+  }
 }
 
 function lnStart() {
@@ -9290,7 +9296,11 @@ function csPick(inputId, dropdownId, hiddenId, id, label, callbackKey) {
   const hidden  = document.getElementById(hiddenId);
   const dd      = document.getElementById(dropdownId);
   if (input)  input.value  = id ? label : '';
-  if (hidden) hidden.value = id;
+  if (hidden) {
+    hidden.value = id;
+    // Auswahl signalisieren – onchange-Handler am Hidden-Feld feuern
+    hidden.dispatchEvent(new Event('change'));
+  }
   if (dd)     dd.classList.remove('open');
   if (callbackKey && _csCallbacks[callbackKey]) _csCallbacks[callbackKey](id);
 }
