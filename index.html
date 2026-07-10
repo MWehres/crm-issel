@@ -2960,6 +2960,26 @@ input[type="checkbox"]:hover {
           <option value="">Alle Branchen</option>
         </select>
       </div>
+      <!-- Umkreissuche: Kunden im Radius um eine Adresse/Stadt finden -->
+      <div class="search-bar" style="margin-top:-6px" title="Kunden im Umkreis einer Adresse oder Stadt finden">
+        <div class="search-input-wrap" style="flex:0 1 320px">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke-width="2"/></svg>
+          <input class="search-input" type="text" id="contact-radius-loc" placeholder="Adresse oder Stadt für Umkreissuche…" onkeydown="if(event.key==='Enter'){event.preventDefault();applyContactRadius();}">
+        </div>
+        <select class="filter-select" id="contact-radius-km" onchange="if(contactRadius.lat!=null)applyContactRadius()">
+          <option value="5">5 km</option>
+          <option value="10">10 km</option>
+          <option value="25" selected>25 km</option>
+          <option value="50">50 km</option>
+          <option value="100">100 km</option>
+          <option value="200">200 km</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="contact-radius-btn" onclick="applyContactRadius()">📍 Umkreis suchen</button>
+        <span id="contact-radius-info" class="badge badge-blue" style="display:none;align-items:center;gap:8px;font-size:12px;padding:6px 10px">
+          <span class="cri-text"></span>
+          <span onclick="clearContactRadius()" title="Umkreissuche aufheben" style="cursor:pointer;font-weight:700">&#10005;</span>
+        </span>
+      </div>
       <!-- Bulk-Aktionen Toolbar -->
       <div id="bulk-toolbar" style="display:none;background:var(--accent);color:#fff;border-radius:9px;padding:10px 16px;margin-bottom:12px;display:none;align-items:center;gap:12px">
         <span id="bulk-count" style="font-weight:700;font-size:13px"></span>
@@ -6014,6 +6034,11 @@ function _sortContacts(list) {
         vb = lb?.date || '0000-00-00';
         break;
       }
+      case 'distance':
+        va = contactDistanceKm(a); vb = contactDistanceKm(b);
+        va = va == null ? Infinity : va;
+        vb = vb == null ? Infinity : vb;
+        return dir * (va - vb);
       default:
         va = ''; vb = '';
     }
@@ -6064,11 +6089,15 @@ function renderContacts(list) {
     const isSelected = _bulkSelected.has(c.id);
     const cr = CR_OPTIONS[c.contactResult || ''] || CR_OPTIONS[''];
     const rowClass = isSelected ? '' : cr.rowClass;
+    const dist = contactDistanceKm(c);
+    const distBadge = dist != null
+      ? '<span class="badge badge-blue" style="font-size:10px;padding:1px 6px">' + (dist < 10 ? dist.toFixed(1) : Math.round(dist)) + ' km</span>'
+      : '';
     return '<tr onclick="showAkte(\'' + c.id + '\')" class="' + rowClass + '" style="cursor:pointer' + (isSelected ? ';background:var(--accent-light)' : '') + '">'
       + '<td onclick="event.stopPropagation()" style="width:36px;padding:8px 8px 8px 16px">'
       + '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="bulkToggle(\'' + c.id + '\')" style="width:15px;height:15px;cursor:pointer" onclick="event.stopPropagation()">'
       + '</td>'
-      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">' + esc(c.city||'') + (c.contactResult ? ' ' + crBadgeHtml(c.contactResult) : '') + '</div></div></div></td>'
+      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="contact-avatar" style="background:' + avatarColor + '">' + (initials || '?') + '</div><div><div style="font-weight:600;font-size:13px">' + esc(c.company) + '</div><div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">' + esc(c.city||'') + (distBadge ? ' ' + distBadge : '') + (c.contactResult ? ' ' + crBadgeHtml(c.contactResult) : '') + '</div></div></div></td>'
       + '<td>' + esc([c.firstname, c.lastname].filter(Boolean).join(' ') || '\u2013') + '</td>'
       + '<td style="font-size:12px;color:var(--text2)">' + esc(c.position||'') + '</td>'
       + '<td><span class="badge badge-gray">' + esc(c.industry||'') + '</span></td>'
@@ -6100,11 +6129,99 @@ function getFilteredContacts() {
     const crm = cr === undefined || cr === null || cr === ''
       ? true
       : cr === '_none' ? !c.contactResult : c.contactResult === cr;
-    return match && sm && im && crm;
+    // Umkreisfilter: nur Kontakte innerhalb des Radius um das Suchzentrum
+    let rm = true;
+    if (contactRadius.lat != null) {
+      const d = contactDistanceKm(c);
+      rm = d != null && d <= contactRadius.km;
+    }
+    return match && sm && im && crm && rm;
   });
 }
 
 function filterContacts() { renderContacts(); }
+
+/* ══════════════════════════════════════════════════════════════
+   UMKREISSUCHE – Kontakte im Radius um eine Adresse/Stadt finden
+   Nutzt den vorhandenen Geocoder (Photon/Nominatim) für das
+   Zentrum sowie die gespeicherten Kontakt-Koordinaten (lat/lng).
+══════════════════════════════════════════════════════════════ */
+let contactRadius = { lat: null, lng: null, km: 0, label: '' };
+
+/* Distanz zweier Koordinaten in Kilometern (Haversine) */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2
+          + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/* Entfernung eines Kontakts vom aktuellen Suchzentrum (oder null) */
+function contactDistanceKm(c) {
+  if (contactRadius.lat == null || !(c.lat && c.lng)) return null;
+  return haversineKm(contactRadius.lat, contactRadius.lng, parseFloat(c.lat), parseFloat(c.lng));
+}
+
+/* Umkreissuche starten: Zentrum geocodieren, fehlende Kontakt-
+   Koordinaten nachladen, dann Liste nach Radius filtern. */
+async function applyContactRadius() {
+  const loc = (document.getElementById('contact-radius-loc')?.value || '').trim();
+  const km  = parseFloat(document.getElementById('contact-radius-km')?.value || '0') || 0;
+  if (!loc) { clearContactRadius(); return; }
+
+  const btn = document.getElementById('contact-radius-btn');
+  const oldTxt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Suche…'; }
+  try {
+    // 1) Zentrum der Suche geocodieren
+    const center = await geocodeAddress('', loc);
+    if (!center) { toast('Adresse „' + loc + '“ konnte nicht gefunden werden.', 'error'); return; }
+
+    // 2) Kontakte mit Adresse, aber ohne Koordinaten, nachgeocodieren
+    const need = DB.contacts.filter(c => skHasAddress(c) && !(c.lat && c.lng));
+    if (need.length) {
+      skAbortController = new AbortController();
+      await skBatchGeocode(need, 10, p => {
+        if (btn) btn.textContent = 'Adressen laden ' + p.current + '/' + p.total + '…';
+      });
+    }
+
+    // 3) Zustand setzen, nach Distanz sortieren, neu rendern
+    contactRadius = { lat: center.lat, lng: center.lng, km, label: loc };
+    _contactSortKey = 'distance';
+    _contactSortDir = 'asc';
+    updateContactRadiusInfo();
+    renderContacts();
+  } catch (e) {
+    toast('Umkreissuche fehlgeschlagen: ' + (e?.message || e), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldTxt; }
+  }
+}
+
+/* Umkreissuche aufheben */
+function clearContactRadius() {
+  contactRadius = { lat: null, lng: null, km: 0, label: '' };
+  const loc = document.getElementById('contact-radius-loc');
+  if (loc) loc.value = '';
+  if (_contactSortKey === 'distance') { _contactSortKey = 'company'; _contactSortDir = 'asc'; }
+  updateContactRadiusInfo();
+  renderContacts();
+}
+
+/* Info-Pille aktualisieren */
+function updateContactRadiusInfo() {
+  const info = document.getElementById('contact-radius-info');
+  if (!info) return;
+  if (contactRadius.lat != null) {
+    info.style.display = 'inline-flex';
+    const t = info.querySelector('.cri-text');
+    if (t) t.textContent = 'Umkreis ' + contactRadius.km + ' km um ' + contactRadius.label;
+  } else {
+    info.style.display = 'none';
+  }
+}
 
 function openContactModal(id) {
   editingContactId = id || null;
