@@ -9174,10 +9174,39 @@ function akteActivityHTML(a) {
         <span class="tl-time">${formatDate(a.date)}${a.duration?` · ${a.duration} Min.`:''}</span>
       </div>
       ${u?`<div style="margin-top:3px"><span class="user-assignee-chip"><div class="user-assignee-dot" style="background:${u.color||'#1565C0'}">${userInitials(u)}</div>${esc(u.name)}</span></div>`:''}
-      ${a.details?`<div class="tl-text" style="margin-top:4px;white-space:pre-line">${esc(a.details.substring(0,300))}${a.details.length>300?'…':''}</div>`:''}
+      ${akteActDetailsHTML(a)}
     </div>
     <button class="btn-icon btn-sm no-print" style="color:var(--red);flex-shrink:0" onclick="deleteActivity('${a.id}');renderAkte()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-width="2"/></svg></button>
   </div>`;
+}
+
+// Details-Anzeige in der Timeline: Gesprächsverlauf wird bei Überlänge gekürzt
+// und ist aufklappbar – die eigenen Notizen aus der Leadnotiz (Block „Notizen:")
+// werden IMMER vollständig angezeigt, weil dort Durchwahlen, Namen und
+// Absprachen stehen, die vorher der 300-Zeichen-Kürzung zum Opfer fielen.
+function akteActDetailsHTML(a) {
+  if (!a.details) return '';
+  const m = a.details.match(/\n?Notizen:\n([\s\S]*)$/);
+  const main  = (m ? a.details.slice(0, m.index) : a.details).trim();
+  const notes = m ? m[1].trim() : '';
+  const trunc = main.length > 300;
+  let h = main ? `<div class="tl-text" style="margin-top:4px;white-space:pre-line" id="tl-det-${a.id}" data-full="0">${esc(trunc ? main.substring(0,300)+'…' : main)}</div>` : '';
+  if (trunc) h += `<button class="btn btn-ghost btn-sm no-print" id="tl-det-btn-${a.id}" style="padding:1px 8px;font-size:11px;margin-top:2px" onclick="tlToggleDetails('${a.id}')">Alles anzeigen ▾</button>`;
+  if (notes) h += `<div class="tl-text" style="margin-top:6px;white-space:pre-line;background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:7px 10px">📝 ${esc(notes)}</div>`;
+  return h;
+}
+
+function tlToggleDetails(id) {
+  const a   = DB.activities.find(x => x.id === id);
+  const el  = document.getElementById('tl-det-' + id);
+  const btn = document.getElementById('tl-det-btn-' + id);
+  if (!a || !el || !btn) return;
+  const m = (a.details || '').match(/\n?Notizen:\n[\s\S]*$/);
+  const main = (m ? a.details.slice(0, m.index) : a.details).trim();
+  const expanded = el.dataset.full === '1';
+  el.textContent  = expanded ? main.substring(0, 300) + '…' : main;
+  el.dataset.full = expanded ? '0' : '1';
+  btn.textContent = expanded ? 'Alles anzeigen ▾' : 'Weniger anzeigen ▴';
 }
 
 function akteTaskHTML(t) {
