@@ -8521,6 +8521,7 @@ const LN_RESULTS = [
   { k: 'callback',    cr: 'callback',    due: 'Rückruf am',          task: 'Rückruf',                 dueDefault: 2 },
   { k: 'mail',        cr: 'mail',        due: 'Nachfassen am',       task: 'Unterlagen nachfassen',   dueDefault: 5 },
   { k: 'noanswer',    cr: 'noanswer',    due: 'Erneut versuchen am', task: 'Erneuter Kontaktversuch', dueDefault: 2 },
+  { k: 'mb',          cr: 'noanswer',    due: 'Erneut versuchen am', task: 'Erneuter Kontaktversuch', dueDefault: 2, label: '&#128252; Mailbox erreicht' },
   { k: 'rejected',    cr: 'rejected',    due: null,                  task: null,                      dueDefault: null },
   { k: 'contract',    cr: 'interested',  due: 'Wiedervorlage am',    task: 'Vertragsende nachfassen', dueDefault: 90, label: '&#128196; Vertrag läuft noch' },
 ];
@@ -8643,7 +8644,7 @@ function renderPlaybook() {
       <div class="card-header"><div class="card-title">🏁 Ergebnis</div></div>
       <div class="card-body">
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${LN_RESULTS.map(r => `<button class="btn ${lnResult === r.k ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="lnSetResult('${r.k}')">${lnResultHtmlLabel(r)}</button>`).join('')}
+          ${lnSortedResults().map(r => `<button class="btn ${lnResult === r.k ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="lnSetResult('${r.k}')">${lnResultHtmlLabel(r)}</button>`).join('')}
         </div>
         <div style="font-size:11.5px;color:var(--text3);margin-top:8px">
           Das gewählte Ergebnis wird direkt als Gesprächsergebnis am Kontakt gespeichert – identisch mit den Ergebnissen in der Kontaktliste.
@@ -8723,6 +8724,10 @@ function lnSetWho(k) {
   const def = LN_WHO.find(w => w.k === k);
   if (lnWho !== k && def) lnLogEventSilent(def.icon + ' ' + def.label);
   lnWho = k;
+  // Passendes Ergebnis vorbelegen, solange noch keines gewählt wurde –
+  // bleibt jederzeit per Klick änderbar.
+  if (!lnResult && k === 'mailbox') lnResult = 'mb';
+  if (!lnResult && k === 'none')    lnResult = 'noanswer';
   renderPlaybook();
 }
 
@@ -8755,6 +8760,21 @@ function lnRemoveEvent(i) {
 
 function lnResultDef() {
   return LN_RESULTS.find(r => r.k === lnResult) || null;
+}
+
+// Ergebnis-Buttons passend zum Gesprächspartner sortieren: Bei Mailbox oder
+// „niemand erreicht" stehen die tatsächlich passenden Ergebnisse vorn,
+// statt dass mangels Alternative „Rückruf gewünscht" geklickt wird.
+function lnSortedResults() {
+  const pref = ({
+    mailbox:    ['mb', 'noanswer', 'callback'],
+    none:       ['noanswer', 'mb', 'callback'],
+    gatekeeper: ['callback', 'noanswer', 'mail'],
+  })[lnWho] || [];
+  return [...LN_RESULTS].sort((a, b) => {
+    const ia = pref.indexOf(a.k), ib = pref.indexOf(b.k);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
 }
 
 function lnDueDefault() {
